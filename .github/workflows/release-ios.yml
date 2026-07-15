@@ -2,12 +2,18 @@ name: Release iOS (App Store / TestFlight)
 
 # Builds a signed IPA and uploads it to TestFlight via Fastlane.
 # Requires a PAID Apple Developer account with an iOS Distribution certificate.
-# Trigger by pushing a tag like v1.0.0, or manually.
+# Auto-runs on push to main (TestFlight), on tag v*, or manually.
 on:
   push:
+    branches: [main]
     tags:
       - "v*"
   workflow_dispatch:
+
+concurrency:
+  # TestFlight rejects duplicate build numbers; never upload two at once.
+  group: release-ios-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   FLUTTER_VERSION: "3.41.6"
@@ -52,6 +58,8 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          # Unique, increasing CFBundleVersion for each TestFlight upload.
+          BUILD_NUMBER: ${{ github.run_number }}
         run: bundle exec fastlane ios beta
 
       - name: Archive IPA

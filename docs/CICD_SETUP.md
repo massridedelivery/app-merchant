@@ -13,17 +13,29 @@ This repo ships GitHub Actions pipelines plus Fastlane for shipping to the
 | File | Trigger | What it does |
 |------|---------|--------------|
 | `.github/workflows/ci.yml` | every PR + push to `main`/`develop` | `flutter pub get`, format check (non-blocking), `flutter analyze`, `flutter test`, debug APK build |
-| `.github/workflows/release-android.yml` | tag `v*` or manual | builds a **signed AAB** and uploads to Google Play (default track: `internal`) |
-| `.github/workflows/release-ios.yml` | tag `v*` or manual | builds a **signed IPA** and uploads to **TestFlight** |
+| `.github/workflows/release-android.yml` | **push to `main`** (`internal`), **tag `v*`** (`production`), or manual (chosen track) | builds a **signed AAB** and uploads to Google Play |
+| `.github/workflows/release-ios.yml` | **push to `main`**, **tag `v*`**, or manual | builds a **signed IPA** and uploads to **TestFlight** |
 
-Cutting a release:
+**Auto-release on merge to `main`** ships to testing channels only — Play
+`internal` track and TestFlight. Production is never auto-published; it requires
+a `v*` tag or a manual run.
+
+Promoting to production:
 
 ```bash
 git tag v1.0.1
 git push origin v1.0.1
 ```
 
-…or run either release workflow manually from the Actions tab.
+…or run either release workflow manually from the Actions tab (Android exposes a
+track dropdown).
+
+### Build numbers
+
+Both release workflows pass `--build-number=${{ github.run_number }}` so every
+upload gets a unique, increasing version. Play and App Store both reject
+duplicate build numbers, so **do not** rely on the static `+1` in `pubspec.yaml`
+for store uploads — the run number overrides it in CI.
 
 ## Fastlane layout
 

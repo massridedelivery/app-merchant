@@ -1,9 +1,13 @@
 name: Release Android (Google Play)
 
 # Builds a signed App Bundle and uploads it to Google Play via Fastlane.
-# Trigger by pushing a tag like v1.0.0, or manually with a chosen track.
+# Track is chosen automatically by trigger:
+#   - push to main  -> internal (auto-release for testing)
+#   - tag v*        -> production
+#   - manual run    -> track chosen in the dropdown
 on:
   push:
+    branches: [main]
     tags:
       - "v*"
   workflow_dispatch:
@@ -14,6 +18,11 @@ on:
         default: "internal"
         type: choice
         options: [internal, alpha, beta, production]
+
+concurrency:
+  # Never run two Play uploads at once; cancel superseded main-branch runs.
+  group: release-android-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   FLUTTER_VERSION: "3.41.6"
@@ -48,6 +57,18 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      # Choose the Play track from the trigger: manual input > tag > main push.
+      - name: Determine Play track
+        id: track
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "track=${{ github.event.inputs.track }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "track=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "track=internal" >> "$GITHUB_OUTPUT"
+          fi
+
       # --- Decode signing secrets (base64-encoded in GitHub Secrets) ---
       - name: Decode release keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
@@ -64,13 +85,15 @@ jobs:
       - name: Decode Play service account JSON
         run: echo "${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}" | base64 --decode > android/play-service-account.json
 
+      # --build-number uses the run number so every upload has a unique,
+      # monotonically increasing versionCode (Play rejects duplicates).
       - name: Build signed App Bundle
-        run: flutter build appbundle --release --dart-define-from-file=env/prod.json
+        run: flutter build appbundle --release --build-number=${{ github.run_number }} --dart-define-from-file=env/prod.json
 
       - name: Upload to Google Play
         working-directory: android
         env:
-          SUPPLY_TRACK: ${{ github.event.inputs.track || 'internal' }}
+          SUPPLY_TRACK: ${{ steps.track.outputs.track }}
         run: bundle exec fastlane android deploy
 
       - name: Archive build artifacts

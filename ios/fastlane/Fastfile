@@ -22,7 +22,10 @@ platform :ios do
     )
 
     # Flutter produces the Xcode project/workspace; build the signed IPA.
-    sh("cd .. && flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=env/prod.json")
+    # Pass a unique build number so TestFlight accepts each upload.
+    build_number = ENV["BUILD_NUMBER"]
+    build_number_arg = build_number ? " --build-number=#{build_number}" : ""
+    sh("cd .. && flutter build ipa --release#{build_number_arg} --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=env/prod.json")
 
     upload_to_testflight(
       api_key: api_key,
