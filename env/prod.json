@@ -1,0 +1,5 @@
+{
+  "API_BASE_URL": "https://api.CHANGE_ME.com/api/food",
+  "WS_URL": "wss://api.CHANGE_ME.com/ws",
+  "ENV": "prod"
+}

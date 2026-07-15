@@ -1,0 +1,38 @@
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.mass.merchantApp".freeze
+
+platform :ios do
+  desc "Build a signed IPA and upload it to TestFlight"
+  lane :beta do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_filepath: "./private_keys/AuthKey.p8",
+      in_house: false,
+    )
+
+    # Fetch the App Store distribution certificate + provisioning profile from
+    # the private match repo (read-only in CI).
+    match(
+      type: "appstore",
+      app_identifier: APP_IDENTIFIER,
+      readonly: true,
+      api_key: api_key,
+    )
+
+    # Flutter produces the Xcode project/workspace; build the signed IPA.
+    sh("cd .. && flutter build ipa --release --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=env/prod.json")
+
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: "../build/ios/ipa/merchant_app.ipa",
+      skip_waiting_for_build_processing: true,
+    )
+  end
+
+  desc "Sync signing certificates/profiles into the match repo (run locally, one-time)"
+  lane :certificates do
+    match(type: "appstore", app_identifier: APP_IDENTIFIER, readonly: false)
+  end
+end

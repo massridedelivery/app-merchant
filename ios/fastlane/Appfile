@@ -1,0 +1,2 @@
+app_identifier("com.mass.merchantApp")
+# team_id is read from the App Store Connect API key at runtime.

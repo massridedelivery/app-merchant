@@ -1,30 +1,32 @@
-// This is a basic Flutter widget test.
+// Smoke test: verifies the app boots without throwing.
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// The default Flutter counter template test was replaced because this app has
+// no counter UI. This test wraps the app in a ProviderScope (required, since
+// MyApp is a ConsumerWidget) and mocks SharedPreferences so auth initialization
+// can run in the test environment.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:merchant_app/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  testWidgets('App boots and renders a MaterialApp', (WidgetTester tester) async {
+    await tester.pumpWidget(const ProviderScope(child: MyApp()));
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Let async auth initialization settle.
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // The app should render without throwing. A MaterialApp is always present,
+    // whether the loading spinner or the router is shown.
+    expect(find.byType(MaterialApp), findsWidgets);
   });
 }

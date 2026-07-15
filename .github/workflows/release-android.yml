@@ -1,0 +1,81 @@
+name: Release Android (Google Play)
+
+# Builds a signed App Bundle and uploads it to Google Play via Fastlane.
+# Trigger by pushing a tag like v1.0.0, or manually with a chosen track.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      track:
+        description: "Google Play track"
+        required: true
+        default: "internal"
+        type: choice
+        options: [internal, alpha, beta, production]
+
+env:
+  FLUTTER_VERSION: "3.41.6"
+
+jobs:
+  release:
+    name: Build & deploy to Play
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Set up Ruby (Fastlane)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      # --- Decode signing secrets (base64-encoded in GitHub Secrets) ---
+      - name: Decode release keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Decode Play service account JSON
+        run: echo "${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}" | base64 --decode > android/play-service-account.json
+
+      - name: Build signed App Bundle
+        run: flutter build appbundle --release --dart-define-from-file=env/prod.json
+
+      - name: Upload to Google Play
+        working-directory: android
+        env:
+          SUPPLY_TRACK: ${{ github.event.inputs.track || 'internal' }}
+        run: bundle exec fastlane android deploy
+
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: build/app/outputs/bundle/release/*.aab
+          if-no-files-found: error
