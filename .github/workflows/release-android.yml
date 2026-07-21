@@ -28,9 +28,45 @@ env:
   FLUTTER_VERSION: "3.41.6"
 
 jobs:
+  # Gate: if the signing/publishing secrets aren't configured yet, skip the
+  # release job cleanly (grey "skipped") instead of failing the build.
+  check-secrets:
+    name: Check release secrets
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check for required secrets
+        id: check
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          SERVICE_ACCOUNT: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          missing=""
+          [ -z "$KEYSTORE" ]          && missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -z "$KEYSTORE_PASSWORD" ] && missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -z "$KEY_ALIAS" ]         && missing="$missing ANDROID_KEY_ALIAS"
+          [ -z "$KEY_PASSWORD" ]      && missing="$missing ANDROID_KEY_PASSWORD"
+          [ -z "$SERVICE_ACCOUNT" ]   && missing="$missing PLAY_SERVICE_ACCOUNT_JSON"
+
+          if [ -n "$missing" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "### ⏭️ Play release skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Missing secrets:$missing" >> "$GITHUB_STEP_SUMMARY"
+            echo "See \`docs/RELEASE_SETUP_STEPS.md\` (Part A) to configure them." >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Play release skipped — missing secrets:$missing"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
     name: Build & deploy to Play
     runs-on: ubuntu-latest
+    needs: check-secrets
+    if: needs.check-secrets.outputs.configured == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4

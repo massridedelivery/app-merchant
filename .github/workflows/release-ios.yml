@@ -19,9 +19,48 @@ env:
   FLUTTER_VERSION: "3.41.6"
 
 jobs:
+  # Gate: if the Apple signing/publishing secrets aren't configured yet, skip the
+  # release job cleanly (grey "skipped") instead of failing the build.
+  # Note: macOS runners are billed at a higher rate, so skipping early matters.
+  check-secrets:
+    name: Check release secrets
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check for required secrets
+        id: check
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          MATCH_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_PW: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_AUTH: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+        run: |
+          missing=""
+          [ -z "$KEY_ID" ]     && missing="$missing APP_STORE_CONNECT_KEY_ID"
+          [ -z "$ISSUER_ID" ]  && missing="$missing APP_STORE_CONNECT_ISSUER_ID"
+          [ -z "$API_KEY" ]    && missing="$missing APP_STORE_CONNECT_API_KEY_BASE64"
+          [ -z "$MATCH_URL" ]  && missing="$missing MATCH_GIT_URL"
+          [ -z "$MATCH_PW" ]   && missing="$missing MATCH_PASSWORD"
+          [ -z "$MATCH_AUTH" ] && missing="$missing MATCH_GIT_BASIC_AUTHORIZATION"
+
+          if [ -n "$missing" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "### ⏭️ TestFlight release skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Missing secrets:$missing" >> "$GITHUB_STEP_SUMMARY"
+            echo "See \`docs/RELEASE_SETUP_STEPS.md\` (Part B) to configure them." >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::TestFlight release skipped — missing secrets:$missing"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
   release:
     name: Build & deploy to TestFlight
     runs-on: macos-14
+    needs: check-secrets
+    if: needs.check-secrets.outputs.configured == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
