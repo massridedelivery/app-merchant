@@ -30,6 +30,14 @@ git push origin v1.0.1
 …or run either release workflow manually from the Actions tab (Android exposes a
 track dropdown).
 
+### Behavior before secrets are configured
+
+Both release workflows start with a `check-secrets` job. If any required secret
+is missing, the release job is **skipped** (grey in the Actions UI) rather than
+failed, and the run summary lists exactly which secrets are missing. This keeps
+`main` green until you finish the store setup. Once all secrets are present the
+release job runs automatically — no workflow changes needed.
+
 ### Build numbers
 
 Both release workflows pass `--build-number=${{ github.run_number }}` so every
