@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/profile/presentation/screens/closing_hours_screen.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class StoreDetailsScreen extends ConsumerWidget {
   const StoreDetailsScreen({super.key});
@@ -113,7 +115,7 @@ class StoreDetailsScreen extends ConsumerWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.share_outlined, color: Color(0xFFE5002B)),
+                    icon: const AppIcon(AppIcons.share, color: Color(0xFFE5002B)),
                     label: const Text('แชร์ลิงก์ร้าน Grab',
                         style: TextStyle(color: Color(0xFFE5002B), fontWeight: FontWeight.w600)),
                     style: OutlinedButton.styleFrom(
@@ -146,7 +148,7 @@ class StoreDetailsScreen extends ConsumerWidget {
                     width: 56,
                     height: 56,
                     color: const Color(0xFFF0F0F0),
-                    child: const Icon(Icons.storefront, color: Color(0xFF888888)),
+                    child: const AppIcon(AppIcons.storeLine, color: Color(0xFF888888)),
                   ),
           ),
           const SizedBox(width: 14),
@@ -198,11 +200,11 @@ class StoreDetailsScreen extends ConsumerWidget {
                   : Container(
                       width: 40, height: 40,
                       color: const Color(0xFFF0F0F0),
-                      child: const Icon(Icons.image_outlined, color: Color(0xFFBBBBBB)),
+                      child: const AppIcon(AppIcons.photoLine, color: Color(0xFFBBBBBB)),
                     ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, color: Color(0xFF888888)),
+            const AppIcon(AppIcons.chevronRightLine, color: Color(0xFF888888)),
           ],
         ),
       ],
@@ -220,7 +222,7 @@ class StoreDetailsScreen extends ConsumerWidget {
             children: [
               if (subtitle != null)
                 Text(subtitle, style: AppTypography.body3.copyWith(color: const Color(0xFFE5002B))),
-              const Icon(Icons.chevron_right, color: Color(0xFF888888)),
+              const AppIcon(AppIcons.chevronRightLine, color: Color(0xFF888888)),
             ],
           ),
         ],

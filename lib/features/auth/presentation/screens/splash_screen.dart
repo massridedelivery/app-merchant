@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -60,8 +62,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 ],
               ),
               child: const Center(
-                child: Icon(
-                  Icons.sync, // Represents the rotation icon in design
+                child: AppIcon(
+                  AppIcons.rotationArrow, // Represents the rotation icon in design
                   color: Colors.white,
                   size: 50,
                 ),

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'dart:async';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthOtpScreen extends StatefulWidget {
   final String flow;
@@ -79,7 +81,7 @@ class _AuthOtpScreenState extends State<AuthOtpScreen> {
         backgroundColor: AppColors.semanticGrayNeutralBgWhite,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.semanticGrayNeutralFgHigh),
+          icon: const AppIcon(AppIcons.arrowLeft, color: AppColors.semanticGrayNeutralFgHigh),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -89,7 +91,7 @@ class _AuthOtpScreenState extends State<AuthOtpScreen> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.semanticGrayNeutralFgHigh),
+            icon: const AppIcon(AppIcons.circleQuestionLine, color: AppColors.semanticGrayNeutralFgHigh),
             onPressed: () {},
           ),
         ],

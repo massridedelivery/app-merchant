@@ -5,6 +5,8 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthEmailPasswordScreen extends ConsumerStatefulWidget {
   final String flow;
@@ -55,7 +57,7 @@ class _AuthEmailPasswordScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -147,10 +149,10 @@ class _AuthEmailPasswordScreenState
                           borderSide: BorderSide.none,
                         ),
                         suffixIcon: IconButton(
-                          icon: Icon(
+                          icon: AppIcon(
                             _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+                                ? AppIcons.closedEyeLine
+                                : AppIcons.openedEyeFill,
                             color: AppColors.semanticGrayNeutralFgLowOnWhite,
                             size: 20,
                           ),

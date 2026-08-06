@@ -6,6 +6,8 @@ import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_category_dialog.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_menu_item_dialog.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class MenuScreen extends ConsumerStatefulWidget {
   const MenuScreen({super.key});
@@ -131,8 +133,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                     color: Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.restaurant_menu_rounded,
+                  child: const AppIcon(
+                    AppIcons.forkSpoonLine,
                     size: 48,
                     color: Color(0xFF94A3B8),
                   ),
@@ -266,8 +268,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                               color: const Color(0xFFF8FAFC),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.edit_outlined,
+                            child: const AppIcon(
+                              AppIcons.pencilFill,
                               size: 20,
                               color: Color(0xFF64748B),
                             ),
@@ -291,8 +293,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
       width: 56,
       height: 56,
       decoration: const BoxDecoration(color: Color(0xFFF1F5F9)),
-      child: const Icon(
-        Icons.restaurant_outlined,
+      child: const AppIcon(
+        AppIcons.forkSpoonLine,
         color: Color(0xFF94A3B8),
         size: 24,
       ),
@@ -434,7 +436,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
     return FloatingActionButton.extended(
       backgroundColor: AppColors.primary,
       onPressed: () => _showAddMenu(context),
-      icon: const Icon(Icons.add, color: Colors.white),
+      icon: const AppIcon(AppIcons.plus, color: Colors.white),
       label: Text(
         'เพิ่มเมนู',
         style: AppTypography.label2.copyWith(
@@ -471,7 +473,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                 const SizedBox(height: 24),
                 _buildActionTile(
                   context,
-                  icon: Icons.category_outlined,
+                  icon: const AppIcon(AppIcons.list),
                   title: 'เพิ่มหมวดหมู่ใหม่',
                   subtitle: 'จัดกลุ่มเมนูของคุณ',
                   onTap: () {
@@ -485,7 +487,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                 const SizedBox(height: 12),
                 _buildActionTile(
                   context,
-                  icon: Icons.fastfood_outlined,
+                  icon: const AppIcon(AppIcons.forkSpoonLine),
                   title: 'เพิ่มรายการอาหาร',
                   subtitle: 'เพิ่มเมนูใหม่ให้ลูกค้าเลือก',
                   onTap: () {
@@ -499,7 +501,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                 const SizedBox(height: 12),
                 _buildActionTile(
                   context,
-                  icon: Icons.tune_rounded,
+                  // No modifier/tune equivalent in the SVG icon set yet.
+                  icon: const Icon(Icons.tune_rounded),
                   title: 'เพิ่มกลุ่มตัวเลือกเสริม',
                   subtitle: 'ความหวาน, ขนาดไซส์',
                   onTap: () => Navigator.pop(context),
@@ -514,7 +517,9 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
 
   Widget _buildActionTile(
     BuildContext context, {
-    required IconData icon,
+    // Widget rather than an asset path: most tiles use an [AppIcon] from the
+    // design set, but a few still fall back to a Material icon.
+    required Widget icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -540,7 +545,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
               ),
             ],
           ),
-          child: Icon(icon, color: AppColors.primary, size: 24),
+          child: IconTheme(
+            data: const IconThemeData(color: AppColors.primary, size: 24),
+            child: icon,
+          ),
         ),
         title: Text(
           title,
@@ -555,8 +563,8 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
             color: const Color(0xFF64748B),
           ),
         ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
+        trailing: const AppIcon(
+          AppIcons.chevronRightLine,
           size: 14,
           color: Color(0xFF94A3B8),
         ),

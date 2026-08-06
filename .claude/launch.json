@@ -1,0 +1,31 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "merchant-app-web",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": [
+        "run",
+        "-d",
+        "web-server",
+        "--web-hostname",
+        "localhost",
+        "--web-port",
+        "8085"
+      ],
+      "port": 8085
+    },
+    {
+      "name": "merchant-app-web-release",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8086",
+        "--directory",
+        "build/web"
+      ],
+      "port": 8086
+    }
+  ]
+}

@@ -40,6 +40,7 @@ dependencies:
   shared_preferences: ^2.5.4
   web_socket_channel: ^3.0.3
   google_fonts: ^8.0.2
+  flutter_svg: ^2.0.0
 
 dev_dependencies:
   flutter_test:
@@ -84,4 +85,18 @@ flutter:
         - asset: assets/fonts/poppins_medium.ttf
           weight: 500
         - asset: assets/fonts/poppins_bold.ttf
+          weight: 700
+    # Thai glyph coverage. Ibm/Poppins have none, so every AppTypography style
+    # lists NotoSansThai in fontFamilyFallback.
+    - family: NotoSansThai
+      fonts:
+        - asset: assets/fonts/NotoSansThai-Light.ttf
+          weight: 300
+        - asset: assets/fonts/NotoSansThai-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansThai-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansThai-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansThai-Bold.ttf
           weight: 700

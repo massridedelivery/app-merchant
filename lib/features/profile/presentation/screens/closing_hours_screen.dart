@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/profile/presentation/screens/opening_hours_screen.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class ClosingHoursScreen extends StatelessWidget {
   const ClosingHoursScreen({super.key});
@@ -103,7 +105,7 @@ class ClosingHoursScreen extends StatelessWidget {
                 contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                 title: Text('กำหนดเวลาสำหรับกินที่ร้าน',
                     style: AppTypography.body2.copyWith(color: const Color(0xFF333333))),
-                trailing: const Icon(Icons.chevron_right, color: Color(0xFF888888)),
+                trailing: const AppIcon(AppIcons.chevronRightLine, color: Color(0xFF888888)),
                 onTap: () {},
               ),
             ),

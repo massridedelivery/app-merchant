@@ -7,6 +7,8 @@ import 'package:merchant_app/features/home/presentation/widgets/status_bottom_sh
 import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
 import 'package:merchant_app/features/orders/providers/order_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
@@ -219,8 +221,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: const Icon(
-                  Icons.more_horiz,
+                child: const AppIcon(
+                  AppIcons.threeDotsHorizontal,
                   size: 20,
                   color: Color(0xFF475569),
                 ),
@@ -268,8 +270,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.receipt_long_outlined,
+            child: const AppIcon(
+              AppIcons.stackPaperLine,
               size: 48,
               color: AppColors.primary,
             ),
@@ -367,7 +369,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             ],
           ),
         ),
-        const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF94A3B8)),
+        const AppIcon(AppIcons.chevronRightLine, size: 12, color: Color(0xFF94A3B8)),
       ],
     );
   }
@@ -447,7 +449,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.tag, size: 18, color: AppColors.primary),
+                    const AppIcon(AppIcons.hashtag, size: 18, color: AppColors.primary),
                     const SizedBox(width: 4),
                     Text(
                       order.shortId,

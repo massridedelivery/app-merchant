@@ -4,6 +4,8 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/presentation/widgets/auth_step_indicator.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthPersonalInfoScreen extends StatefulWidget {
   const AuthPersonalInfoScreen({super.key});
@@ -107,7 +109,7 @@ class _AuthPersonalInfoScreenState extends State<AuthPersonalInfoScreen> {
             style: AppTypography.body2.copyWith(color: const Color(0xFF94A3B8)),
           ),
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF64748B)),
+          icon: const AppIcon(AppIcons.chevronDownLine, color: Color(0xFF64748B)),
           items: items.map((String val) {
             return DropdownMenuItem<String>(
               value: val,
@@ -128,7 +130,7 @@ class _AuthPersonalInfoScreenState extends State<AuthPersonalInfoScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
         centerTitle: false,
@@ -170,8 +172,8 @@ class _AuthPersonalInfoScreenState extends State<AuthPersonalInfoScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(
-                                Icons.person_pin_outlined,
+                              const AppIcon(
+                                AppIcons.circleUserLine,
                                 color: AppColors.primary,
                                 size: 20,
                               ),
@@ -294,8 +296,8 @@ class _AuthPersonalInfoScreenState extends State<AuthPersonalInfoScreen> {
                                         ),
                                         child: Row(
                                           children: [
-                                            Icon(
-                                              Icons.calendar_today_outlined,
+                                            AppIcon(
+                                              AppIcons.calendarLine,
                                               size: 18,
                                               color: _selectedBirthDate != null
                                                   ? AppColors.primary
@@ -360,8 +362,8 @@ class _AuthPersonalInfoScreenState extends State<AuthPersonalInfoScreen> {
                                         ),
                                         child: Row(
                                           children: [
-                                            Icon(
-                                              Icons.event_available_outlined,
+                                            AppIcon(
+                                              AppIcons.calendarLine,
                                               size: 18,
                                               color: _selectedExpiryDate != null
                                                   ? AppColors.primary
@@ -400,8 +402,8 @@ class _AuthPersonalInfoScreenState extends State<AuthPersonalInfoScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(
-                                Icons.home_outlined,
+                              const AppIcon(
+                                AppIcons.houseLine,
                                 color: AppColors.primary,
                                 size: 20,
                               ),

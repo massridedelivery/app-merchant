@@ -2,7 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/finance/presentation/screens/finance_screen.dart';
@@ -121,36 +123,37 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             children: [
               _buildFloatingNavItem(
                 0,
-                Icons.home_outlined,
-                Icons.home_rounded,
+                AppIcons.houseLine,
+                AppIcons.houseFill,
                 'หน้าแรก',
                 currentIndex,
               ),
               _buildFloatingNavItem(
                 1,
-                Icons.receipt_long_outlined,
-                Icons.receipt_long_rounded,
+                AppIcons.cartLine,
+                AppIcons.cartFill,
                 'คำสั่งซื้อ',
                 currentIndex,
               ),
+              // No filled variant in the icon set for these two.
               _buildFloatingNavItem(
                 2,
-                Icons.restaurant_menu_outlined,
-                Icons.restaurant_menu_rounded,
+                AppIcons.forkSpoonLine,
+                AppIcons.forkSpoonLine,
                 'เมนู',
                 currentIndex,
               ),
               _buildFloatingNavItem(
                 3,
-                Icons.account_balance_wallet_outlined,
-                Icons.account_balance_wallet_rounded,
+                AppIcons.cardLine,
+                AppIcons.cardLine,
                 'การเงิน',
                 currentIndex,
               ),
               _buildFloatingNavItem(
                 4,
-                Icons.person_outline,
-                Icons.person_rounded,
+                AppIcons.circleUserLine,
+                AppIcons.circleUserFill,
                 'บัญชี',
                 currentIndex,
               ),
@@ -163,8 +166,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   Widget _buildFloatingNavItem(
     int index,
-    IconData outlineIcon,
-    IconData filledIcon,
+    String outlineIcon,
+    String filledIcon,
     String label,
     int currentIndex,
   ) {
@@ -203,7 +206,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       ),
                     ],
                   ),
-                  child: Icon(filledIcon, color: Colors.white, size: 24),
+                  child: Center(
+                    child: AppIcon(
+                      filledIcon,
+                      size: 24,
+                      color: Colors.white,
+                      semanticLabel: label,
+                    ),
+                  ),
                 ),
               ),
 
@@ -214,7 +224,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (!isSelected) ...[
-                    Icon(outlineIcon, color: const Color(0xFF64748B), size: 24),
+                    AppIcon(
+                      outlineIcon,
+                      size: 24,
+                      color: const Color(0xFF64748B),
+                      semanticLabel: label,
+                    ),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,

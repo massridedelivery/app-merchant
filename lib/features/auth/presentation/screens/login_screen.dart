@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -57,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: const AppIcon(AppIcons.arrowLeft, color: AppColors.textPrimary),
           onPressed: () {
             if (context.canPop()) {
               context.pop();
@@ -73,7 +75,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: AppColors.textPrimary),
+            icon: const AppIcon(AppIcons.circleQuestionLine, color: AppColors.textPrimary),
             onPressed: () {},
           ),
         ],
@@ -130,8 +132,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                     suffixIcon: IconButton(
-                      icon: Icon(
-                         _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, 
+                      icon: AppIcon(
+                        _obscurePassword ? AppIcons.closedEyeLine : AppIcons.openedEyeFill,
                         color: AppColors.textPrimary,
                       ),
                       onPressed: () {

@@ -5,6 +5,8 @@ import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/home/presentation/widgets/status_bottom_sheet.dart';
 import 'package:merchant_app/features/home/providers/navigation_provider.dart';
 import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -81,8 +83,8 @@ class DashboardScreen extends ConsumerWidget {
               color: AppColors.primary.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.storefront_outlined,
+            child: const AppIcon(
+              AppIcons.storeLine,
               size: 24,
               color: AppColors.primary,
             ),
@@ -107,8 +109,8 @@ class DashboardScreen extends ConsumerWidget {
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.notifications_none_outlined,
+                child: const AppIcon(
+                  AppIcons.notification,
                   size: 24,
                   color: Color(0xFF475569),
                 ),
@@ -346,10 +348,9 @@ class DashboardScreen extends ConsumerWidget {
                 color: statusColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                _statusIcon(profile.status),
-                color: statusColor,
-                size: 24,
+              child: IconTheme(
+                data: IconThemeData(color: statusColor, size: 24),
+                child: _statusIcon(profile.status),
               ),
             ),
             const SizedBox(width: 16),
@@ -373,8 +374,8 @@ class DashboardScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_forward_ios,
+            const AppIcon(
+              AppIcons.chevronRightLine,
               size: 14,
               color: Color(0xFF94A3B8),
             ),
@@ -384,14 +385,15 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  IconData _statusIcon(RestaurantStatus s) {
+  Widget _statusIcon(RestaurantStatus s) {
     switch (s) {
       case RestaurantStatus.open:
-        return Icons.check_circle_rounded;
+        return const AppIcon(AppIcons.circleCheckFill);
       case RestaurantStatus.busy:
-        return Icons.access_time_filled_rounded;
+        return const AppIcon(AppIcons.clockLine);
       case RestaurantStatus.paused:
-        return Icons.pause_circle_filled_rounded;
+        // No pause equivalent in the SVG icon set yet.
+        return const Icon(Icons.pause_circle_filled_rounded);
     }
   }
 
@@ -401,29 +403,30 @@ class DashboardScreen extends ConsumerWidget {
     final items = [
       _QuickItem(
         'คำสั่งซื้อ',
-        Icons.receipt_long_rounded,
+        const AppIcon(AppIcons.stackPaperLine),
         null,
         () => ref.read(navigationProvider.notifier).state = 1,
       ),
       _QuickItem(
         'เมนู',
-        Icons.restaurant_menu_rounded,
+        const AppIcon(AppIcons.forkSpoonLine),
         null,
         () => ref.read(navigationProvider.notifier).state = 2,
       ),
       _QuickItem(
         'ยอดขาย',
-        Icons.query_stats_rounded,
+        const AppIcon(AppIcons.graphArrowUpLine),
         null,
         () => ref.read(navigationProvider.notifier).state = 3,
       ),
-      _QuickItem('ผู้ช่วย AI', Icons.auto_awesome_rounded, 'ใหม่', () {}),
-      _QuickItem('โปรโมชัน', Icons.campaign_rounded, 'ยอดฮิต', () {}),
-      _QuickItem('พนักงาน', Icons.people_alt_rounded, null, () {}),
-      _QuickItem('หน้าร้าน', Icons.store_rounded, null, () {}),
-      _QuickItem('ประวัติ', Icons.history_rounded, null, () {}),
-      _QuickItem('พรรทเนอร์', Icons.stars_rounded, null, () {}),
-      _QuickItem('เพิ่มเติม', Icons.grid_view_rounded, null, () {}),
+      // The four Material icons below have no counterpart in the SVG icon set.
+      _QuickItem('ผู้ช่วย AI', const Icon(Icons.auto_awesome_rounded), 'ใหม่', () {}),
+      _QuickItem('โปรโมชัน', const AppIcon(AppIcons.calloutFill), 'ยอดฮิต', () {}),
+      _QuickItem('พนักงาน', const Icon(Icons.people_alt_rounded), null, () {}),
+      _QuickItem('หน้าร้าน', const AppIcon(AppIcons.storeLine), null, () {}),
+      _QuickItem('ประวัติ', const AppIcon(AppIcons.clockwiseArrow), null, () {}),
+      _QuickItem('พรรทเนอร์', const Icon(Icons.stars_rounded), null, () {}),
+      _QuickItem('เพิ่มเติม', const AppIcon(AppIcons.threeDotsHorizontal), null, () {}),
     ];
 
     return Padding(
@@ -478,10 +481,12 @@ class DashboardScreen extends ConsumerWidget {
                   ],
                   border: Border.all(color: const Color(0xFFF1F5F9)),
                 ),
-                child: Icon(
-                  item.icon,
-                  size: 24,
-                  color: const Color(0xFF334155),
+                child: IconTheme(
+                  data: const IconThemeData(
+                    size: 24,
+                    color: Color(0xFF334155),
+                  ),
+                  child: item.icon,
                 ),
               ),
               if (item.badge != null)
@@ -695,8 +700,8 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(
-                      Icons.arrow_forward_ios,
+                    const AppIcon(
+                      AppIcons.chevronRightLine,
                       size: 10,
                       color: AppColors.primary,
                     ),
@@ -729,7 +734,10 @@ class DashboardScreen extends ConsumerWidget {
 
 class _QuickItem {
   final String label;
-  final IconData icon;
+
+  /// Widget rather than an asset path — most entries are an [AppIcon] from the
+  /// design set, a few still fall back to a Material icon.
+  final Widget icon;
   final String? badge;
   final VoidCallback onTap;
 

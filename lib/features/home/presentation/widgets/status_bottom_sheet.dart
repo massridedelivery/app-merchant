@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/profile/presentation/screens/opening_hours_screen.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class StatusBottomSheet extends StatefulWidget {
   final RestaurantStatus currentStatus;
@@ -63,7 +65,7 @@ class _StatusBottomSheetState extends State<StatusBottomSheet> {
           _buildOption(
             status: RestaurantStatus.open,
             color: const Color(0xFF2ECC71),
-            icon: Icons.check_circle_outline_rounded,
+            icon: const AppIcon(AppIcons.circleCheckFill),
             label: 'เปิดให้บริการ',
             subtitle: 'พร้อมรับคำสั่งซื้อใหม่เข้าร้าน',
           ),
@@ -71,7 +73,7 @@ class _StatusBottomSheetState extends State<StatusBottomSheet> {
           _buildOption(
             status: RestaurantStatus.busy,
             color: const Color(0xFFF39C12),
-            icon: Icons.access_time_rounded,
+            icon: const AppIcon(AppIcons.clockLine),
             label: 'ยุ่ง (Busy)',
             subtitle: 'ปรับเวลาเตรียมคำสั่งซื้อเพิ่มขึ้น',
           ),
@@ -79,7 +81,8 @@ class _StatusBottomSheetState extends State<StatusBottomSheet> {
           _buildOption(
             status: RestaurantStatus.paused,
             color: const Color(0xFFE74C3C),
-            icon: Icons.pause_circle_outline_rounded,
+            // No pause equivalent in the SVG icon set yet.
+            icon: const Icon(Icons.pause_circle_outline_rounded),
             label: 'หยุดชั่วคราว',
             subtitle: 'ไม่รับคำสั่งซื้อเพิ่ม เพื่อจัดการหน้าร้าน',
           ),
@@ -160,7 +163,8 @@ class _StatusBottomSheetState extends State<StatusBottomSheet> {
   Widget _buildOption({
     required RestaurantStatus status,
     required Color color,
-    required IconData icon,
+    // Widget so the paused option can keep its Material fallback icon.
+    required Widget icon,
     required String label,
     required String subtitle,
   }) {
@@ -186,10 +190,12 @@ class _StatusBottomSheetState extends State<StatusBottomSheet> {
                 color: isSelected ? color : const Color(0xFFF1F5F9),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : const Color(0xFF64748B),
-                size: 24,
+              child: IconTheme(
+                data: IconThemeData(
+                  color: isSelected ? Colors.white : const Color(0xFF64748B),
+                  size: 24,
+                ),
+                child: icon,
               ),
             ),
             const SizedBox(width: 16),
@@ -215,7 +221,7 @@ class _StatusBottomSheetState extends State<StatusBottomSheet> {
               ),
             ),
             if (isSelected)
-              Icon(Icons.check_circle_rounded, color: color, size: 24),
+              AppIcon(AppIcons.circleCheckFill, color: color, size: 24),
           ],
         ),
       ),
