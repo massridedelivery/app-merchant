@@ -5,6 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+/// Server → restaurant event names, per section 6 of the API guide.
+class SocketEventType {
+  const SocketEventType._();
+
+  static const String orderCreated = 'order_created';
+  static const String orderAccepted = 'order_accepted';
+  static const String orderRejected = 'order_rejected';
+  static const String orderPreparing = 'order_preparing';
+  static const String orderReady = 'order_ready';
+  static const String driverAssigned = 'driver_assigned';
+  static const String orderPickedUp = 'order_picked_up';
+  static const String orderDelivered = 'order_delivered';
+  static const String orderCancelled = 'order_cancelled';
+}
+
 class SocketService {
   static const String wsUrl = 'ws://localhost:8080/ws';
   WebSocketChannel? _channel;
@@ -62,12 +77,15 @@ class SocketService {
     }
   }
 
-  /// Sends a mock NEW_ORDER event – call this to simulate receiving an order
+  /// Emits an `order_created` frame shaped like the one in the API guide —
+  /// the order sits under `order`, not `data`.
   void simulateNewOrder() {
     final mockOrderId = 'order_mock_${DateTime.now().millisecondsSinceEpoch}';
     _controller.add({
-      'type': 'NEW_ORDER',
-      'data': {
+      'type': SocketEventType.orderCreated,
+      'order_id': mockOrderId,
+      'status': 'PLACED',
+      'order': {
         'id': mockOrderId,
         'customer_id': 'cust_mock',
         'status': 'PLACED',
@@ -93,14 +111,22 @@ class SocketService {
     });
   }
 
-  /// Sends a mock ORDER_STATUS_UPDATED event
-  void simulateOrderStatusUpdate(String orderId, String status) {
+  /// Emits one of the flat status frames (`order_accepted`, `order_ready`,
+  /// `driver_assigned`, …). [status] is omitted for `driver_assigned`, which
+  /// the guide defines without one.
+  void simulateStatusEvent(
+    String type,
+    String orderId, {
+    String? status,
+    String? driverId,
+    String? reason,
+  }) {
     _controller.add({
-      'type': 'ORDER_STATUS_UPDATED',
-      'data': {
-        'orderId': orderId,
-        'status': status,
-      }
+      'type': type,
+      'order_id': orderId,
+      'status': ?status,
+      'driver_id': ?driverId,
+      'reason': ?reason,
     });
   }
 

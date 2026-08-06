@@ -540,7 +540,7 @@ class MockInterceptor extends Interceptor {
     return [
       {
         'id': 'order_hist_001',
-        'status': 'COMPLETED',
+        'status': 'DELIVERED',
         'total_amount': 350.0,
         'food_total': 330.0,
         'delivery_fee': 20.0,
@@ -551,7 +551,7 @@ class MockInterceptor extends Interceptor {
       },
       {
         'id': 'order_hist_002',
-        'status': 'COMPLETED',
+        'status': 'DELIVERED',
         'total_amount': 175.0,
         'food_total': 160.0,
         'delivery_fee': 15.0,

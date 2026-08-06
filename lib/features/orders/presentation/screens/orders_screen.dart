@@ -410,7 +410,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 
   Widget _buildOrderCard(Order order) {
-    final isPending = order.status == 'PLACED';
+    final isPending = order.status == OrderStatus.placed;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -615,39 +615,57 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
 
   Map<String, dynamic> _statusInfo(String status) {
     switch (status) {
-      case 'PLACED':
+      case OrderStatus.placed:
         return {
           'label': 'ได้รับออเดอร์',
           'bg': AppColors.primary.withOpacity(0.1),
           'text': AppColors.primary,
         };
-      case 'RESTAURANT_ACCEPTED':
+      case OrderStatus.restaurantAccepted:
         return {
           'label': 'รับแล้ว',
           'bg': const Color(0xFFE0F2FE),
           'text': const Color(0xFF0284C7),
         };
-      case 'PREPARING':
+      case OrderStatus.preparing:
         return {
           'label': 'กำลังเตรียม',
           'bg': const Color(0xFFF3E8FF),
           'text': const Color(0xFF7E22CE),
         };
-      case 'READY_FOR_PICKUP':
+      case OrderStatus.readyForPickup:
         return {
           'label': 'พร้อมส่ง',
           'bg': const Color(0xFFDCFCE7),
           'text': const Color(0xFF166534),
         };
-      case 'DELIVERY':
+      case OrderStatus.driverAssigned:
+        return {
+          'label': 'รอไรเดอร์รับ',
+          'bg': const Color(0xFFFEF9C3),
+          'text': const Color(0xFFA16207),
+        };
+      case OrderStatus.driverPickedUp:
         return {
           'label': 'กำลังส่ง',
           'bg': const Color(0xFFFEF9C3),
           'text': const Color(0xFFA16207),
         };
-      case 'COMPLETED':
+      case OrderStatus.delivered:
         return {
           'label': 'ส่งเรียบร้อย',
+          'bg': const Color(0xFFF1F5F9),
+          'text': const Color(0xFF475569),
+        };
+      case OrderStatus.restaurantRejected:
+        return {
+          'label': 'ปฏิเสธแล้ว',
+          'bg': const Color(0xFFF1F5F9),
+          'text': const Color(0xFF475569),
+        };
+      case OrderStatus.cancelled:
+        return {
+          'label': 'ยกเลิกแล้ว',
           'bg': const Color(0xFFF1F5F9),
           'text': const Color(0xFF475569),
         };
@@ -661,12 +679,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 
   bool _shouldShowActions(String status) =>
-      ['PLACED', 'RESTAURANT_ACCEPTED', 'PREPARING'].contains(status);
+      OrderStatus.inKitchen.contains(status);
 
   Widget _buildActionButtons(Order order) {
     final notifier = ref.read(orderProvider.notifier);
 
-    if (order.status == 'PLACED') {
+    if (order.status == OrderStatus.placed) {
       return Row(
         children: [
           Expanded(
@@ -710,7 +728,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           ),
         ],
       );
-    } else if (order.status == 'RESTAURANT_ACCEPTED') {
+    } else if (order.status == OrderStatus.restaurantAccepted) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
@@ -729,7 +747,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           ),
         ),
       );
-    } else if (order.status == 'PREPARING') {
+    } else if (order.status == OrderStatus.preparing) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(

@@ -6,10 +6,10 @@ import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
 
 class OrderState {
-  final List<Order> preparing;   // PLACED + RESTAURANT_ACCEPTED + PREPARING
-  final List<Order> ready;       // READY_FOR_PICKUP
-  final List<Order> delivering;  // DELIVERY (driver picked up)
-  final List<Order> history;     // COMPLETED + CANCELLED
+  final List<Order> preparing; // OrderStatus.inKitchen
+  final List<Order> ready; // OrderStatus.readyForPickup
+  final List<Order> delivering; // OrderStatus.withDriver
+  final List<Order> history; // OrderStatus.finished
   final bool isLoading;
   final bool hasNewOrder;
   final Order? newestIncomingOrder;
@@ -25,7 +25,8 @@ class OrderState {
   });
 
   List<Order> get allActive => [...preparing, ...ready, ...delivering];
-  int get preparingCount => preparing.where((o) => o.status != 'PLACED').length;
+  int get preparingCount =>
+      preparing.where((o) => o.status != OrderStatus.placed).length;
 
   OrderState copyWith({
     List<Order>? preparing,
@@ -44,7 +45,8 @@ class OrderState {
       history: history ?? this.history,
       isLoading: isLoading ?? this.isLoading,
       hasNewOrder: clearNew ? false : (hasNewOrder ?? this.hasNewOrder),
-      newestIncomingOrder: clearNew ? null : (newestIncomingOrder ?? this.newestIncomingOrder),
+      newestIncomingOrder:
+          clearNew ? null : (newestIncomingOrder ?? this.newestIncomingOrder),
     );
   }
 }
@@ -58,6 +60,20 @@ class OrderNotifier extends StateNotifier<OrderState> {
   final SocketService _socket;
   StreamSubscription<Map<String, dynamic>>? _socketSub;
 
+  /// The status each flat event implies. `driver_assigned` is the reason this
+  /// map exists at all — the guide defines it without a `status` field, so the
+  /// event name is the only signal.
+  static const Map<String, String> _statusForEvent = {
+    SocketEventType.orderAccepted: OrderStatus.restaurantAccepted,
+    SocketEventType.orderRejected: OrderStatus.restaurantRejected,
+    SocketEventType.orderPreparing: OrderStatus.preparing,
+    SocketEventType.orderReady: OrderStatus.readyForPickup,
+    SocketEventType.driverAssigned: OrderStatus.driverAssigned,
+    SocketEventType.orderPickedUp: OrderStatus.driverPickedUp,
+    SocketEventType.orderDelivered: OrderStatus.delivered,
+    SocketEventType.orderCancelled: OrderStatus.cancelled,
+  };
+
   void _init() {
     fetchOrders();
     fetchHistory();
@@ -65,124 +81,118 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   void _subscribeToSocket() {
-    _socketSub = _socket.stream.listen((event) {
-      final type = event['type'];
-      final data = event['data'] as Map<String, dynamic>?;
-      if (data == null) return;
-
-      if (type == 'NEW_ORDER') {
-        final order = Order.fromJson(data);
-        state = state.copyWith(
-          preparing: [order, ...state.preparing],
-          hasNewOrder: true,
-          newestIncomingOrder: order,
-        );
-      } else if (type == 'ORDER_STATUS_UPDATED') {
-        final orderId = data['orderId'] as String?;
-        final newStatus = data['status'] as String?;
-        if (orderId != null && newStatus != null) {
-          _handleStatusUpdate(orderId, newStatus);
-        }
-      }
-    });
+    _socketSub = _socket.stream.listen(handleSocketEvent);
   }
 
-  void _handleStatusUpdate(String orderId, String newStatus) {
-    _updateOrderInAll(orderId, newStatus);
-    // re-bucket if needed
-    _rebucketOrder(orderId, newStatus);
-  }
+  /// Handles one server frame. Shapes are defined in section 6.2 of the API
+  /// guide: `order_created` nests the whole order under `order`, every other
+  /// event is flat and identifies the order by `order_id`.
+  void handleSocketEvent(Map<String, dynamic> event) {
+    final type = event['type'];
+    if (type is! String) return;
 
-  void _updateOrderInAll(String id, String status) {
-    Order? updated;
-    final newPreparing = state.preparing.map((o) {
-      if (o.id == id) {
-        updated = o.copyWith(status: status);
-        return updated!;
-      }
-      return o;
-    }).toList();
-    final newReady = state.ready.map((o) {
-      if (o.id == id) {
-        updated = o.copyWith(status: status);
-        return updated!;
-      }
-      return o;
-    }).toList();
-    state = state.copyWith(preparing: newPreparing, ready: newReady);
-  }
-
-  void _rebucketOrder(String id, String status) {
-    Order? found;
-    List<Order> newPreparing = state.preparing;
-    List<Order> newReady = state.ready;
-    List<Order> newDelivering = state.delivering;
-    List<Order> newHistory = state.history;
-
-    // Find in preparing
-    final pIdx = state.preparing.indexWhere((o) => o.id == id);
-    if (pIdx != -1) found = state.preparing[pIdx].copyWith(status: status);
-
-    // Find in ready
-    if (found == null) {
-      final rIdx = state.ready.indexWhere((o) => o.id == id);
-      if (rIdx != -1) found = state.ready[rIdx].copyWith(status: status);
+    if (type == SocketEventType.orderCreated) {
+      final payload = event['order'];
+      if (payload is! Map<String, dynamic>) return;
+      final order = Order.fromJson(payload);
+      state = state.copyWith(
+        preparing: [order, ...state.preparing],
+        hasNewOrder: true,
+        newestIncomingOrder: order,
+      );
+      return;
     }
 
-    if (found == null) return;
+    final impliedStatus = _statusForEvent[type];
+    if (impliedStatus == null) return; // not an event this screen reacts to
 
-    // Remove from all lists
-    newPreparing = newPreparing.where((o) => o.id != id).toList();
-    newReady = newReady.where((o) => o.id != id).toList();
+    final orderId = event['order_id'];
+    if (orderId is! String) return;
 
-    // Add to correct bucket
-    switch (status) {
-      case 'PLACED':
-      case 'RESTAURANT_ACCEPTED':
-      case 'PREPARING':
-        newPreparing = [found, ...newPreparing];
+    // Trust the server's own status when it sends one.
+    final status = event['status'];
+    _applyStatus(orderId, status is String ? status : impliedStatus);
+  }
+
+  /// Moves the order into whichever bucket [status] belongs to, wherever it
+  /// currently sits. Searching every bucket matters for the later half of the
+  /// flow — an order already in `delivering` still has DELIVERED to come.
+  void _applyStatus(String id, String status) {
+    if (!mounted) return;
+
+    Order? found;
+    for (final bucket in [
+      state.preparing,
+      state.ready,
+      state.delivering,
+      state.history,
+    ]) {
+      final index = bucket.indexWhere((o) => o.id == id);
+      if (index != -1) {
+        found = bucket[index];
         break;
-      case 'READY_FOR_PICKUP':
-        newReady = [found, ...newReady];
-        break;
-      case 'DELIVERY':
-        newDelivering = [found, ...newDelivering];
-        break;
-      case 'COMPLETED':
-      case 'RESTAURANT_REJECTED':
-      case 'CANCELLED':
-        newHistory = [found, ...newHistory];
-        break;
+      }
+    }
+    if (found == null) return; // an order we never loaded
+
+    final updated = found.copyWith(status: status);
+    List<Order> without(List<Order> orders) =>
+        orders.where((o) => o.id != id).toList();
+
+    var preparing = without(state.preparing);
+    var ready = without(state.ready);
+    var delivering = without(state.delivering);
+    var history = without(state.history);
+
+    if (OrderStatus.inKitchen.contains(status)) {
+      preparing = [updated, ...preparing];
+    } else if (status == OrderStatus.readyForPickup) {
+      ready = [updated, ...ready];
+    } else if (OrderStatus.withDriver.contains(status)) {
+      delivering = [updated, ...delivering];
+    } else if (OrderStatus.finished.contains(status)) {
+      history = [updated, ...history];
+    } else {
+      return; // unrecognised status: leave the order where it is
     }
 
     state = state.copyWith(
-      preparing: newPreparing,
-      ready: newReady,
-      delivering: newDelivering,
-      history: newHistory,
+      preparing: preparing,
+      ready: ready,
+      delivering: delivering,
+      history: history,
     );
   }
 
   Future<void> fetchOrders() async {
     state = state.copyWith(isLoading: true);
     try {
-      final response = await _api.dio.get(
-          '/restaurant/orders/pending?status=PLACED,RESTAURANT_ACCEPTED,PREPARING,READY_FOR_PICKUP');
-      final orders =
-          (response.data as List).map((j) => Order.fromJson(j as Map<String, dynamic>)).toList();
-
-      final preparing = orders
-          .where((o) => ['PLACED', 'RESTAURANT_ACCEPTED', 'PREPARING'].contains(o.status))
+      final statuses = [
+        ...OrderStatus.inKitchen,
+        OrderStatus.readyForPickup,
+        ...OrderStatus.withDriver,
+      ].join(',');
+      final response =
+          await _api.dio.get('/restaurant/orders/pending?status=$statuses');
+      final orders = (response.data as List)
+          .map((j) => Order.fromJson(j as Map<String, dynamic>))
           .toList();
-      final ready =
-          orders.where((o) => o.status == 'READY_FOR_PICKUP').toList();
 
+      if (!mounted) return;
       state = state.copyWith(
-        preparing: preparing,
-        ready: ready,
+        preparing: orders
+            .where((o) => OrderStatus.inKitchen.contains(o.status))
+            .toList(),
+        ready: orders
+            .where((o) => o.status == OrderStatus.readyForPickup)
+            .toList(),
+        delivering: orders
+            .where((o) => OrderStatus.withDriver.contains(o.status))
+            .toList(),
         isLoading: false,
       );
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false);
     }
   }
@@ -193,6 +203,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
       final orders = (response.data as List)
           .map((j) => Order.fromJson(j as Map<String, dynamic>))
           .toList();
+      if (!mounted) return;
       state = state.copyWith(history: orders);
     } catch (_) {}
   }
@@ -200,7 +211,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
   Future<bool> acceptOrder(String id) async {
     try {
       await _api.dio.post('/restaurant/orders/$id/accept');
-      _updateOrderInAll(id, 'RESTAURANT_ACCEPTED');
+      _applyStatus(id, OrderStatus.restaurantAccepted);
       return true;
     } catch (_) {
       return false;
@@ -210,7 +221,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
   Future<bool> rejectOrder(String id) async {
     try {
       await _api.dio.post('/restaurant/orders/$id/reject');
-      _rebucketOrder(id, 'RESTAURANT_REJECTED');
+      _applyStatus(id, OrderStatus.restaurantRejected);
       return true;
     } catch (_) {
       return false;
@@ -220,7 +231,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
   Future<bool> markPreparing(String id) async {
     try {
       await _api.dio.post('/restaurant/orders/$id/preparing');
-      _updateOrderInAll(id, 'PREPARING');
+      _applyStatus(id, OrderStatus.preparing);
       return true;
     } catch (_) {
       return false;
@@ -230,7 +241,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
   Future<bool> markReady(String id) async {
     try {
       await _api.dio.post('/restaurant/orders/$id/ready');
-      _rebucketOrder(id, 'READY_FOR_PICKUP');
+      _applyStatus(id, OrderStatus.readyForPickup);
       return true;
     } catch (_) {
       return false;

@@ -1,3 +1,43 @@
+/// Order statuses, matching the status-flow appendix of the API guide:
+///
+/// ```
+/// PLACED
+///   ├─→ RESTAURANT_ACCEPTED → PREPARING → READY_FOR_PICKUP
+///   │      → DRIVER_ASSIGNED → DRIVER_PICKED_UP → DELIVERED
+///   ├─→ RESTAURANT_REJECTED
+///   └─→ CANCELLED
+/// ```
+class OrderStatus {
+  const OrderStatus._();
+
+  static const String placed = 'PLACED';
+  static const String restaurantAccepted = 'RESTAURANT_ACCEPTED';
+  static const String preparing = 'PREPARING';
+  static const String readyForPickup = 'READY_FOR_PICKUP';
+  static const String driverAssigned = 'DRIVER_ASSIGNED';
+  static const String driverPickedUp = 'DRIVER_PICKED_UP';
+  static const String delivered = 'DELIVERED';
+  static const String restaurantRejected = 'RESTAURANT_REJECTED';
+  static const String cancelled = 'CANCELLED';
+
+  /// Still the restaurant's responsibility.
+  static const List<String> inKitchen = [
+    placed,
+    restaurantAccepted,
+    preparing,
+  ];
+
+  /// Handed over to a driver.
+  static const List<String> withDriver = [driverAssigned, driverPickedUp];
+
+  /// Terminal — nothing left for the restaurant to do.
+  static const List<String> finished = [
+    delivered,
+    restaurantRejected,
+    cancelled,
+  ];
+}
+
 class OrderItem {
   final String id;
   final String menuItemId;
