@@ -5,6 +5,8 @@ import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_category_dialog.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_menu_item_dialog.dart';
+import 'package:merchant_app/features/menu/presentation/widgets/edit_category_dialog.dart';
+import 'package:merchant_app/features/menu/presentation/widgets/edit_menu_item_dialog.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
@@ -178,12 +180,41 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                   tilePadding: const EdgeInsets.symmetric(horizontal: 20),
                   iconColor: AppColors.primary,
                   collapsedIconColor: const Color(0xFF64748B),
-                  title: Text(
-                    cat.name,
-                    style: AppTypography.heading6.copyWith(
-                      color: AppColors.semanticGrayNeutralFgHigh,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          cat.name,
+                          style: AppTypography.heading6.copyWith(
+                            color: AppColors.semanticGrayNeutralFgHigh,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      if (!cat.isActive)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Text(
+                            'ซ่อนอยู่',
+                            style: AppTypography.label3.copyWith(
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: 'แก้ไขหมวดหมู่',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => showDialog(
+                          context: context,
+                          builder: (_) => EditCategoryDialog(category: cat),
+                        ),
+                        icon: const AppIcon(
+                          AppIcons.pencilFill,
+                          size: 18,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
                   ),
                   subtitle: Text(
                     '${cat.items.length} รายการ',
@@ -275,7 +306,10 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                               color: Color(0xFF64748B),
                             ),
                           ),
-                          onTap: () {},
+                          onTap: () => showDialog(
+                            context: context,
+                            builder: (_) => EditMenuItemDialog(item: item),
+                          ),
                         ),
                       ],
                     );
