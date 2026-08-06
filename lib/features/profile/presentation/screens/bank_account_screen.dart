@@ -62,8 +62,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final api = ApiClient();
-      await api.dio.post('/api/food/restaurant/withdraw', data: {
+      await apiClient.dio.post('/restaurant/withdraw', data: {
         'amount': amount,
       });
 
