@@ -1,102 +1,36 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/menu/data/menu_repository.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
-
-// ─── Modifier Group Models ─────────────────────────────────────────────────
-
-class ModifierItem {
-  final String id;
-  final String name;
-  final double price;
-  final bool isAvailable;
-
-  ModifierItem({
-    required this.id,
-    required this.name,
-    required this.price,
-    required this.isAvailable,
-  });
-
-  factory ModifierItem.fromJson(Map<String, dynamic> json) {
-    return ModifierItem(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      price: (json['price'] ?? 0.0).toDouble(),
-      isAvailable: json['is_available'] ?? true,
-    );
-  }
-}
-
-class ModifierGroup {
-  final String id;
-  final String name;
-  final int minSelect;
-  final int maxSelect;
-  final bool isActive;
-  final int itemCount;
-  final List<ModifierItem> modifiers;
-
-  ModifierGroup({
-    required this.id,
-    required this.name,
-    required this.minSelect,
-    required this.maxSelect,
-    required this.isActive,
-    required this.itemCount,
-    required this.modifiers,
-  });
-
-  factory ModifierGroup.fromJson(Map<String, dynamic> json) {
-    return ModifierGroup(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      minSelect: json['min_select'] ?? 0,
-      maxSelect: json['max_select'] ?? 1,
-      isActive: json['is_active'] ?? true,
-      itemCount: json['item_count'] ?? 0,
-      modifiers: (json['modifiers'] as List? ?? [])
-          .map((m) => ModifierItem.fromJson(m as Map<String, dynamic>))
-          .toList(),
-    );
-  }
-}
 
 // ─── Menu Notifier ─────────────────────────────────────────────────────────
 
 class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
-  MenuNotifier(this._api) : super(const AsyncValue.loading()) {
+  MenuNotifier(this._repository) : super(const AsyncValue.loading()) {
     fetchMenu('rest-123');
   }
 
-  final ApiClient _api;
+  final MenuRepository _repository;
 
   Future<void> fetchMenu(String restaurantId) async {
     state = const AsyncValue.loading();
     try {
-      final response =
-          await _api.dio.get('/customer/restaurants/$restaurantId/menu');
-      final categories = (response.data['categories'] as List)
-          .map((json) => MenuCategory.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final categories = await _repository.fetchMenu(restaurantId);
+      if (!mounted) return;
       state = AsyncValue.data(categories);
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> addCategory(String name) async {
     try {
-      final response = await _api.dio.post('/restaurant/menu/categories',
-          data: {
-            'name': name,
-            'sort_order': (state.value?.length ?? 0) + 1,
-          });
-      if (response.statusCode == 201) {
-        final newCategory = MenuCategory.fromJson(
-            response.data as Map<String, dynamic>);
-        final current = state.value ?? [];
-        state = AsyncValue.data([...current, newCategory]);
-      }
+      final newCategory = await _repository.createCategory(
+        name: name,
+        sortOrder: (state.value?.length ?? 0) + 1,
+      );
+      if (newCategory == null || !mounted) return;
+      state = AsyncValue.data([...?state.value, newCategory]);
     } catch (e) {
       throw Exception('ไม่สามารถเพิ่มหมวดหมู่ได้');
     }
@@ -109,30 +43,27 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
     required double price,
   }) async {
     try {
-      final response = await _api.dio.post('/restaurant/menu/items',
-          data: {
-            'category_id': categoryId,
-            'name': name,
-            'description': description,
-            'price': price,
-          });
-      if (response.statusCode == 201) {
-        final newItem = MenuItem.fromJson(response.data as Map<String, dynamic>);
-        final current = state.value ?? [];
-        final updated = current.map((cat) {
-          if (cat.id == categoryId) {
-            return MenuCategory(
-              id: cat.id,
-              name: cat.name,
-              sortOrder: cat.sortOrder,
-              isActive: cat.isActive,
-              items: [...cat.items, newItem],
-            );
-          }
-          return cat;
-        }).toList();
-        state = AsyncValue.data(updated);
-      }
+      final newItem = await _repository.createItem(
+        categoryId: categoryId,
+        name: name,
+        description: description,
+        price: price,
+      );
+      if (newItem == null || !mounted) return;
+
+      final updated = (state.value ?? []).map((cat) {
+        if (cat.id == categoryId) {
+          return MenuCategory(
+            id: cat.id,
+            name: cat.name,
+            sortOrder: cat.sortOrder,
+            isActive: cat.isActive,
+            items: [...cat.items, newItem],
+          );
+        }
+        return cat;
+      }).toList();
+      state = AsyncValue.data(updated);
     } catch (e) {
       throw Exception('ไม่สามารถเพิ่มเมนูได้');
     }
@@ -143,20 +74,19 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
 
 class ModifierGroupNotifier
     extends StateNotifier<AsyncValue<List<ModifierGroup>>> {
-  ModifierGroupNotifier(this._api) : super(const AsyncValue.loading()) {
+  ModifierGroupNotifier(this._repository) : super(const AsyncValue.loading()) {
     fetch();
   }
 
-  final ApiClient _api;
+  final MenuRepository _repository;
 
   Future<void> fetch() async {
     try {
-      final response = await _api.dio.get('/restaurant/modifier-groups');
-      final groups = (response.data as List)
-          .map((j) => ModifierGroup.fromJson(j as Map<String, dynamic>))
-          .toList();
+      final groups = await _repository.fetchModifierGroups();
+      if (!mounted) return;
       state = AsyncValue.data(groups);
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
@@ -166,8 +96,8 @@ class ModifierGroupNotifier
 
 final menuProvider =
     StateNotifierProvider<MenuNotifier, AsyncValue<List<MenuCategory>>>(
-        (ref) => MenuNotifier(ref.watch(apiClientProvider)));
+        (ref) => MenuNotifier(ref.watch(menuRepositoryProvider)));
 
-final modifierGroupProvider = StateNotifierProvider<ModifierGroupNotifier,
-        AsyncValue<List<ModifierGroup>>>(
-    (ref) => ModifierGroupNotifier(ref.watch(apiClientProvider)));
+final modifierGroupProvider =
+    StateNotifierProvider<ModifierGroupNotifier, AsyncValue<List<ModifierGroup>>>(
+        (ref) => ModifierGroupNotifier(ref.watch(menuRepositoryProvider)));

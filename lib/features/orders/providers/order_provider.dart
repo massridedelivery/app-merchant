@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/orders/data/order_repository.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
 
@@ -52,11 +52,11 @@ class OrderState {
 }
 
 class OrderNotifier extends StateNotifier<OrderState> {
-  OrderNotifier(this._api, this._socket) : super(const OrderState()) {
+  OrderNotifier(this._repository, this._socket) : super(const OrderState()) {
     _init();
   }
 
-  final ApiClient _api;
+  final OrderRepository _repository;
   final SocketService _socket;
   StreamSubscription<Map<String, dynamic>>? _socketSub;
 
@@ -167,16 +167,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
   Future<void> fetchOrders() async {
     state = state.copyWith(isLoading: true);
     try {
-      final statuses = [
-        ...OrderStatus.inKitchen,
-        OrderStatus.readyForPickup,
-        ...OrderStatus.withDriver,
-      ].join(',');
-      final response =
-          await _api.dio.get('/restaurant/orders/pending?status=$statuses');
-      final orders = (response.data as List)
-          .map((j) => Order.fromJson(j as Map<String, dynamic>))
-          .toList();
+      final orders = await _repository.fetchPending();
 
       if (!mounted) return;
       state = state.copyWith(
@@ -199,10 +190,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   Future<void> fetchHistory() async {
     try {
-      final response = await _api.dio.get('/restaurant/orders/history');
-      final orders = (response.data as List)
-          .map((j) => Order.fromJson(j as Map<String, dynamic>))
-          .toList();
+      final orders = await _repository.fetchHistory();
       if (!mounted) return;
       state = state.copyWith(history: orders);
     } catch (_) {}
@@ -210,7 +198,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   Future<bool> acceptOrder(String id) async {
     try {
-      await _api.dio.post('/restaurant/orders/$id/accept');
+      await _repository.accept(id);
       _applyStatus(id, OrderStatus.restaurantAccepted);
       return true;
     } catch (_) {
@@ -220,7 +208,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   Future<bool> rejectOrder(String id) async {
     try {
-      await _api.dio.post('/restaurant/orders/$id/reject');
+      await _repository.reject(id);
       _applyStatus(id, OrderStatus.restaurantRejected);
       return true;
     } catch (_) {
@@ -230,7 +218,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   Future<bool> markPreparing(String id) async {
     try {
-      await _api.dio.post('/restaurant/orders/$id/preparing');
+      await _repository.markPreparing(id);
       _applyStatus(id, OrderStatus.preparing);
       return true;
     } catch (_) {
@@ -240,7 +228,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
   Future<bool> markReady(String id) async {
     try {
-      await _api.dio.post('/restaurant/orders/$id/ready');
+      await _repository.markReady(id);
       _applyStatus(id, OrderStatus.readyForPickup);
       return true;
     } catch (_) {
@@ -261,7 +249,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
 
 final orderProvider = StateNotifierProvider<OrderNotifier, OrderState>(
   (ref) => OrderNotifier(
-    ref.watch(apiClientProvider),
+    ref.watch(orderRepositoryProvider),
     ref.watch(socketServiceProvider),
   ),
 );

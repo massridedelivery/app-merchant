@@ -5,6 +5,7 @@ import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_category_dialog.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_menu_item_dialog.dart';
+import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';

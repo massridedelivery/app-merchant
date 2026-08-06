@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
-import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/finance/data/finance_repository.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
@@ -63,9 +63,7 @@ class _BankAccountScreenState extends ConsumerState<BankAccountScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await ref.read(apiClientProvider).dio.post('/restaurant/withdraw', data: {
-        'amount': amount,
-      });
+      await ref.read(financeRepositoryProvider).requestWithdrawal(amount);
 
       if (!mounted) return;
       showDialog(

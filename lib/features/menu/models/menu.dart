@@ -58,3 +58,60 @@ class MenuItem {
     );
   }
 }
+
+class ModifierItem {
+  final String id;
+  final String name;
+  final double price;
+  final bool isAvailable;
+
+  ModifierItem({
+    required this.id,
+    required this.name,
+    required this.price,
+    required this.isAvailable,
+  });
+
+  factory ModifierItem.fromJson(Map<String, dynamic> json) {
+    return ModifierItem(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      price: (json['price'] ?? 0.0).toDouble(),
+      isAvailable: json['is_available'] ?? true,
+    );
+  }
+}
+
+class ModifierGroup {
+  final String id;
+  final String name;
+  final int minSelect;
+  final int maxSelect;
+  final bool isActive;
+  final int itemCount;
+  final List<ModifierItem> modifiers;
+
+  ModifierGroup({
+    required this.id,
+    required this.name,
+    required this.minSelect,
+    required this.maxSelect,
+    required this.isActive,
+    required this.itemCount,
+    required this.modifiers,
+  });
+
+  factory ModifierGroup.fromJson(Map<String, dynamic> json) {
+    return ModifierGroup(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      minSelect: json['min_select'] ?? 0,
+      maxSelect: json['max_select'] ?? 1,
+      isActive: json['is_active'] ?? true,
+      itemCount: json['item_count'] ?? 0,
+      modifiers: (json['modifiers'] as List? ?? [])
+          .map((m) => ModifierItem.fromJson(m as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}

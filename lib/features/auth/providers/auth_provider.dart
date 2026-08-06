@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
-import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/auth/data/auth_repository.dart';
 
 // State
 class AuthState {
@@ -21,20 +21,16 @@ class AuthState {
 
 // Notifier
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier(this._api) : super(AuthState(isLoading: true)) {
+  AuthNotifier(this._repository) : super(AuthState(isLoading: true)) {
     _init();
   }
 
-  final ApiClient _api;
+  final AuthRepository _repository;
 
   Future<void> _init() async {
     try {
-      final token = await _api.readToken();
-      if (token != null) {
-        state = state.copyWith(isLoading: false, isAuthenticated: true);
-      } else {
-        state = state.copyWith(isLoading: false, isAuthenticated: false);
-      }
+      final token = await _repository.currentToken();
+      state = state.copyWith(isLoading: false, isAuthenticated: token != null);
     } catch (e) {
       state = state.copyWith(isLoading: false, isAuthenticated: false);
     }
@@ -43,20 +39,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login(String username, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _api.dio.post('/auth/login', data: {
-        'username': username,
-        'password': password,
-        'role': 'restaurant',
-      });
+      final token =
+          await _repository.login(username: username, password: password);
 
-      if (response.statusCode == 200 && response.data['token'] != null) {
-        await _api.saveToken(response.data['token']);
-        state = state.copyWith(isLoading: false, isAuthenticated: true);
-        return true;
-      } else {
+      if (token == null) {
         state = state.copyWith(isLoading: false, error: 'Login failed');
         return false;
       }
+
+      await _repository.persistToken(token);
+      state = state.copyWith(isLoading: false, isAuthenticated: true);
+      return true;
     } on DioException catch (e) {
       state = state.copyWith(
           isLoading: false,
@@ -71,17 +64,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> mockLogin() async {
     state = state.copyWith(isLoading: true);
     await Future.delayed(const Duration(milliseconds: 500));
-    await _api.saveToken('mock_token_123');
+    await _repository.persistToken('mock_token_123');
     state = state.copyWith(isLoading: false, isAuthenticated: true);
   }
 
   Future<void> logout() async {
-    await _api.clearToken();
+    await _repository.forgetToken();
     state = state.copyWith(isAuthenticated: false);
   }
 }
 
 // Provider
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.watch(apiClientProvider));
+  return AuthNotifier(ref.watch(authRepositoryProvider));
 });
