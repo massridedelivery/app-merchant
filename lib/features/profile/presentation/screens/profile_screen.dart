@@ -5,7 +5,7 @@ import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/ads/presentation/screens/ads_screen.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
-import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
+import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/profile/presentation/screens/bank_account_screen.dart';
 import 'package:merchant_app/features/profile/presentation/screens/closing_hours_screen.dart';
 import 'package:merchant_app/features/profile/presentation/screens/store_details_screen.dart';

@@ -4,7 +4,8 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/home/presentation/widgets/status_bottom_sheet.dart';
 import 'package:merchant_app/features/home/providers/navigation_provider.dart';
-import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
+import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
+import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
