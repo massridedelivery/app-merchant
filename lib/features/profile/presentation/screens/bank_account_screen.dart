@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/core/network/api_client.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
-class BankAccountScreen extends StatefulWidget {
+class BankAccountScreen extends ConsumerStatefulWidget {
   const BankAccountScreen({super.key});
 
   @override
-  State<BankAccountScreen> createState() => _BankAccountScreenState();
+  ConsumerState<BankAccountScreen> createState() => _BankAccountScreenState();
 }
 
-class _BankAccountScreenState extends State<BankAccountScreen> {
+class _BankAccountScreenState extends ConsumerState<BankAccountScreen> {
   final double _currentBalance = 15420.50;
   bool _isLoading = false;
 
@@ -62,7 +63,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await apiClient.dio.post('/restaurant/withdraw', data: {
+      await ref.read(apiClientProvider).dio.post('/restaurant/withdraw', data: {
         'amount': amount,
       });
 

@@ -30,15 +30,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ProfileScreen(),
   ];
 
+  // Held rather than read in dispose(): reading a provider while the widget is
+  // being torn down is not guaranteed to succeed.
+  late final SocketService _socket;
+
   @override
   void initState() {
     super.initState();
-    socketService.connect(mockMode: true);
+    _socket = ref.read(socketServiceProvider);
+    _socket.connect(mockMode: true);
   }
 
   @override
   void dispose() {
-    socketService.disconnect();
+    _socket.disconnect();
     super.dispose();
   }
 

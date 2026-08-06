@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -142,4 +143,11 @@ class SocketService {
   }
 }
 
-final socketService = SocketService();
+/// The app's realtime connection. Lives for as long as the [ProviderScope], and
+/// is torn down with it. Override in tests with
+/// `socketServiceProvider.overrideWithValue(fake)`.
+final socketServiceProvider = Provider<SocketService>((ref) {
+  final service = SocketService();
+  ref.onDispose(service.dispose);
+  return service;
+});

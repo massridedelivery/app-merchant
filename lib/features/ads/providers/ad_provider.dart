@@ -29,12 +29,14 @@ class AdCampaign {
 }
 
 class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
-  AdNotifier() : super(const AsyncValue.loading());
+  AdNotifier(this._api) : super(const AsyncValue.loading());
+
+  final ApiClient _api;
 
   Future<void> fetchAd() async {
     state = const AsyncValue.loading();
     try {
-      final response = await apiClient.dio.get('/restaurant/ads');
+      final response = await _api.dio.get('/restaurant/ads');
       state = AsyncValue.data(AdCampaign.fromJson(response.data));
     } catch (e, st) {
       if (e is DioException && e.response?.statusCode == 404) {
@@ -47,7 +49,7 @@ class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
 
   Future<bool> createAd(double dailyBudget, double bidPerClick) async {
     try {
-      await apiClient.dio.post('/restaurant/ads', data: {
+      await _api.dio.post('/restaurant/ads', data: {
         'daily_budget': dailyBudget,
         'bid_per_click': bidPerClick,
       });
@@ -60,7 +62,7 @@ class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
 
   Future<bool> updateAd(double dailyBudget, double bidPerClick, bool isActive) async {
     try {
-      await apiClient.dio.put('/restaurant/ads', data: {
+      await _api.dio.put('/restaurant/ads', data: {
         'daily_budget': dailyBudget,
         'bid_per_click': bidPerClick,
         'is_active': isActive,
@@ -74,5 +76,5 @@ class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
 }
 
 final adProvider = StateNotifierProvider<AdNotifier, AsyncValue<AdCampaign?>>((ref) {
-  return AdNotifier()..fetchAd();
+  return AdNotifier(ref.watch(apiClientProvider))..fetchAd();
 });

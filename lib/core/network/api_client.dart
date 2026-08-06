@@ -1,13 +1,16 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mock_interceptor.dart';
 
 class ApiClient {
   static const String baseUrl = 'http://localhost:8080/api/food';
   static const bool useMock = true; // Toggle this to false to use real API
-  
+
+  static const String _tokenKey = 'auth_token';
+
   late final Dio _dio;
-  
+
   ApiClient() {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
@@ -26,7 +29,7 @@ class ApiClient {
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _getToken();
+        final token = await readToken();
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
@@ -41,21 +44,24 @@ class ApiClient {
 
   Dio get dio => _dio;
 
-  Future<String?> _getToken() async {
+  Future<String?> readToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return prefs.getString(_tokenKey);
   }
 
-  static Future<void> saveToken(String token) async {
+  Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
+    await prefs.setString(_tokenKey, token);
+    _dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
-  static Future<void> clearToken() async {
+  Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
+    await prefs.remove(_tokenKey);
+    _dio.options.headers.remove('Authorization');
   }
 }
 
-// Global instance for simple access, later we can use Riverpod provider
-final apiClient = ApiClient();
+/// The app's HTTP client. Override in tests with
+/// `ProviderScope(overrides: [apiClientProvider.overrideWithValue(fake)])`.
+final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());

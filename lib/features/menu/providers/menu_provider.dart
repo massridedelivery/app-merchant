@@ -64,15 +64,17 @@ class ModifierGroup {
 // ─── Menu Notifier ─────────────────────────────────────────────────────────
 
 class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
-  MenuNotifier() : super(const AsyncValue.loading()) {
+  MenuNotifier(this._api) : super(const AsyncValue.loading()) {
     fetchMenu('rest-123');
   }
+
+  final ApiClient _api;
 
   Future<void> fetchMenu(String restaurantId) async {
     state = const AsyncValue.loading();
     try {
       final response =
-          await apiClient.dio.get('/customer/restaurants/$restaurantId/menu');
+          await _api.dio.get('/customer/restaurants/$restaurantId/menu');
       final categories = (response.data['categories'] as List)
           .map((json) => MenuCategory.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -84,7 +86,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
 
   Future<void> addCategory(String name) async {
     try {
-      final response = await apiClient.dio.post('/restaurant/menu/categories',
+      final response = await _api.dio.post('/restaurant/menu/categories',
           data: {
             'name': name,
             'sort_order': (state.value?.length ?? 0) + 1,
@@ -107,7 +109,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
     required double price,
   }) async {
     try {
-      final response = await apiClient.dio.post('/restaurant/menu/items',
+      final response = await _api.dio.post('/restaurant/menu/items',
           data: {
             'category_id': categoryId,
             'name': name,
@@ -141,13 +143,15 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
 
 class ModifierGroupNotifier
     extends StateNotifier<AsyncValue<List<ModifierGroup>>> {
-  ModifierGroupNotifier() : super(const AsyncValue.loading()) {
+  ModifierGroupNotifier(this._api) : super(const AsyncValue.loading()) {
     fetch();
   }
 
+  final ApiClient _api;
+
   Future<void> fetch() async {
     try {
-      final response = await apiClient.dio.get('/restaurant/modifier-groups');
+      final response = await _api.dio.get('/restaurant/modifier-groups');
       final groups = (response.data as List)
           .map((j) => ModifierGroup.fromJson(j as Map<String, dynamic>))
           .toList();
@@ -162,7 +166,8 @@ class ModifierGroupNotifier
 
 final menuProvider =
     StateNotifierProvider<MenuNotifier, AsyncValue<List<MenuCategory>>>(
-        (ref) => MenuNotifier());
+        (ref) => MenuNotifier(ref.watch(apiClientProvider)));
 
 final modifierGroupProvider = StateNotifierProvider<ModifierGroupNotifier,
-    AsyncValue<List<ModifierGroup>>>((ref) => ModifierGroupNotifier());
+        AsyncValue<List<ModifierGroup>>>(
+    (ref) => ModifierGroupNotifier(ref.watch(apiClientProvider)));

@@ -50,14 +50,16 @@ class FinanceEarnings {
 
 class FinanceSummaryNotifier
     extends StateNotifier<AsyncValue<FinanceSummary>> {
-  FinanceSummaryNotifier() : super(const AsyncValue.loading()) {
+  FinanceSummaryNotifier(this._api) : super(const AsyncValue.loading()) {
     fetch();
   }
+
+  final ApiClient _api;
 
   Future<void> fetch() async {
     try {
       final response =
-          await apiClient.dio.get('/restaurant/finance/summary');
+          await _api.dio.get('/restaurant/finance/summary');
       state = AsyncValue.data(FinanceSummary.fromJson(
           response.data as Map<String, dynamic>));
     } catch (e, st) {
@@ -68,18 +70,20 @@ class FinanceSummaryNotifier
 
 final financeSummaryProvider =
     StateNotifierProvider<FinanceSummaryNotifier, AsyncValue<FinanceSummary>>(
-        (ref) => FinanceSummaryNotifier());
+        (ref) => FinanceSummaryNotifier(ref.watch(apiClientProvider)));
 
 class FinanceTransactionsNotifier
     extends StateNotifier<AsyncValue<List<Map<String, dynamic>>>> {
-  FinanceTransactionsNotifier() : super(const AsyncValue.loading()) {
+  FinanceTransactionsNotifier(this._api) : super(const AsyncValue.loading()) {
     fetch();
   }
+
+  final ApiClient _api;
 
   Future<void> fetch() async {
     try {
       final response =
-          await apiClient.dio.get('/restaurant/finance/transactions');
+          await _api.dio.get('/restaurant/finance/transactions');
       state =
           AsyncValue.data(List<Map<String, dynamic>>.from(response.data as List));
     } catch (e, st) {
@@ -91,19 +95,21 @@ class FinanceTransactionsNotifier
 final financeTransactionsProvider = StateNotifierProvider<
     FinanceTransactionsNotifier,
     AsyncValue<List<Map<String, dynamic>>>>(
-  (ref) => FinanceTransactionsNotifier(),
+  (ref) => FinanceTransactionsNotifier(ref.watch(apiClientProvider)),
 );
 
 class FinanceEarningsNotifier
     extends StateNotifier<AsyncValue<FinanceEarnings>> {
-  FinanceEarningsNotifier() : super(const AsyncValue.loading()) {
+  FinanceEarningsNotifier(this._api) : super(const AsyncValue.loading()) {
     fetch();
   }
+
+  final ApiClient _api;
 
   Future<void> fetch() async {
     try {
       final response =
-          await apiClient.dio.get('/restaurant/finance/earnings');
+          await _api.dio.get('/restaurant/finance/earnings');
       state = AsyncValue.data(
           FinanceEarnings.fromJson(response.data as Map<String, dynamic>));
     } catch (e, st) {
@@ -114,4 +120,4 @@ class FinanceEarningsNotifier
 
 final financeEarningsProvider =
     StateNotifierProvider<FinanceEarningsNotifier, AsyncValue<FinanceEarnings>>(
-        (ref) => FinanceEarningsNotifier());
+        (ref) => FinanceEarningsNotifier(ref.watch(apiClientProvider)));

@@ -115,13 +115,15 @@ class RestaurantProfile {
 
 class RestaurantProfileNotifier
     extends StateNotifier<AsyncValue<RestaurantProfile>> {
-  RestaurantProfileNotifier() : super(const AsyncValue.loading()) {
+  RestaurantProfileNotifier(this._api) : super(const AsyncValue.loading()) {
     fetchProfile();
   }
 
+  final ApiClient _api;
+
   Future<void> fetchProfile() async {
     try {
-      final response = await apiClient.dio.get('/restaurant/profile');
+      final response = await _api.dio.get('/restaurant/profile');
       state = AsyncValue.data(
           RestaurantProfile.fromJson(response.data as Map<String, dynamic>));
     } catch (e, st) {
@@ -135,10 +137,10 @@ class RestaurantProfileNotifier
       final isBusy = newStatus == RestaurantStatus.busy;
 
       if (newStatus == RestaurantStatus.open || newStatus == RestaurantStatus.paused) {
-        await apiClient.dio.post('/restaurant/open', data: {'is_open': isOpen});
+        await _api.dio.post('/restaurant/open', data: {'is_open': isOpen});
       }
       if (newStatus == RestaurantStatus.busy) {
-        await apiClient.dio
+        await _api.dio
             .post('/restaurant/busy', data: {'is_busy': isBusy});
       }
 
@@ -176,5 +178,5 @@ class RestaurantProfileNotifier
 
 final restaurantProfileProvider = StateNotifierProvider<
     RestaurantProfileNotifier, AsyncValue<RestaurantProfile>>(
-  (ref) => RestaurantProfileNotifier(),
+  (ref) => RestaurantProfileNotifier(ref.watch(apiClientProvider)),
 );
