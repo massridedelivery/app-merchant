@@ -12,6 +12,24 @@ class RestaurantRepository {
     return RestaurantProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// `PUT /restaurant/profile` (1.2). The guide's body has no phone or manager
+  /// fields, so those stay read-only in the app even though the app's model
+  /// carries them.
+  Future<void> updateProfile({
+    required String name,
+    String? description,
+    String? cuisineType,
+    String? address,
+    double? minOrderAmount,
+  }) =>
+      _api.dio.put('/restaurant/profile', data: {
+        'restaurant_name': name,
+        'description': ?description,
+        'cuisine_type': ?cuisineType,
+        'address': ?address,
+        'min_order_amount': ?minOrderAmount,
+      });
+
   Future<void> setOpen(bool isOpen) =>
       _api.dio.post('/restaurant/open', data: {'is_open': isOpen});
 

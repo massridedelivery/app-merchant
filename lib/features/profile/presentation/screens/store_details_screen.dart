@@ -5,6 +5,7 @@ import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/profile/presentation/screens/closing_hours_screen.dart';
+import 'package:merchant_app/features/profile/presentation/widgets/edit_store_profile_dialog.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
@@ -29,6 +30,22 @@ class StoreDetailsScreen extends ConsumerWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
+        actions: [
+          if (profileAsync.hasValue)
+            IconButton(
+              tooltip: 'แก้ไขข้อมูลร้าน',
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) =>
+                    EditStoreProfileDialog(profile: profileAsync.value!),
+              ),
+              icon: const AppIcon(
+                AppIcons.pencilFill,
+                size: 20,
+                color: Color(0xFF333333),
+              ),
+            ),
+        ],
       ),
       body: profileAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFE5002B))),
@@ -86,6 +103,17 @@ class StoreDetailsScreen extends ConsumerWidget {
                   _buildInfoRow('เบอร์ติดต่อร้าน', profile.phone ?? '-'),
                   const Divider(height: 24, color: Color(0xFFF0F0F0)),
                   _buildInfoRow('ที่อยู่', profile.address ?? '-'),
+                  const Divider(height: 24, color: Color(0xFFF0F0F0)),
+                  _buildInfoRow('ประเภทอาหาร', profile.cuisineType ?? '-'),
+                  const Divider(height: 24, color: Color(0xFFF0F0F0)),
+                  _buildInfoRow('คำอธิบายร้าน', profile.description ?? '-'),
+                  const Divider(height: 24, color: Color(0xFFF0F0F0)),
+                  _buildInfoRow(
+                    'ยอดสั่งซื้อขั้นต่ำ',
+                    profile.minOrderAmount == null
+                        ? '-'
+                        : '฿${profile.minOrderAmount!.toStringAsFixed(0)}',
+                  ),
                 ],
               ),
               const SizedBox(height: 8),

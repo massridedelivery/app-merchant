@@ -22,6 +22,33 @@ class RestaurantProfileNotifier
     }
   }
 
+  /// The endpoint echoes only the fields it accepts, so rather than rebuild the
+  /// profile from the response the edited values are folded into the copy the
+  /// app already holds.
+  Future<void> updateProfile({
+    required String name,
+    String? description,
+    String? cuisineType,
+    String? address,
+    double? minOrderAmount,
+  }) async {
+    await _repository.updateProfile(
+      name: name,
+      description: description,
+      cuisineType: cuisineType,
+      address: address,
+      minOrderAmount: minOrderAmount,
+    );
+    if (!mounted || !state.hasValue) return;
+    state = AsyncValue.data(state.value!.copyWith(
+      name: name,
+      description: description,
+      cuisineType: cuisineType,
+      address: address,
+      minOrderAmount: minOrderAmount,
+    ));
+  }
+
   Future<void> setStatus(RestaurantStatus newStatus) async {
     try {
       final isOpen = newStatus == RestaurantStatus.open;

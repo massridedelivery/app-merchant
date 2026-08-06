@@ -7,6 +7,9 @@ class RestaurantProfile {
   final bool isOpen;
   final bool isBusy;
   final RestaurantStatus status;
+  final String? description;
+  final String? cuisineType;
+  final double? minOrderAmount;
   final String? logoUrl;
   final String? coverImageUrl;
   final String? address;
@@ -28,6 +31,9 @@ class RestaurantProfile {
     required this.isOpen,
     required this.isBusy,
     required this.status,
+    this.description,
+    this.cuisineType,
+    this.minOrderAmount,
     this.logoUrl,
     this.coverImageUrl,
     this.address,
@@ -61,6 +67,9 @@ class RestaurantProfile {
       isOpen: json['is_open'] ?? false,
       isBusy: json['is_busy'] ?? false,
       status: status,
+      description: json['description'],
+      cuisineType: json['cuisine_type'],
+      minOrderAmount: (json['min_order_amount'] as num?)?.toDouble(),
       logoUrl: json['logo_url'],
       coverImageUrl: json['cover_image_url'],
       address: json['address'],
@@ -78,6 +87,11 @@ class RestaurantProfile {
   }
 
   RestaurantProfile copyWith({
+    String? name,
+    String? description,
+    String? cuisineType,
+    double? minOrderAmount,
+    String? address,
     bool? isOpen,
     bool? isBusy,
     RestaurantStatus? status,
@@ -87,15 +101,18 @@ class RestaurantProfile {
     int? preparingCount,
   }) {
     return RestaurantProfile(
-      name: name,
+      name: name ?? this.name,
       branch: branch,
       platform: platform,
       isOpen: isOpen ?? this.isOpen,
       isBusy: isBusy ?? this.isBusy,
       status: status ?? this.status,
+      description: description ?? this.description,
+      cuisineType: cuisineType ?? this.cuisineType,
+      minOrderAmount: minOrderAmount ?? this.minOrderAmount,
       logoUrl: logoUrl,
       coverImageUrl: coverImageUrl,
-      address: address,
+      address: address ?? this.address,
       phone: phone,
       email: email,
       managerPhone: managerPhone,
