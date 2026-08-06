@@ -7,6 +7,9 @@ import 'package:merchant_app/features/menu/presentation/widgets/add_category_dia
 import 'package:merchant_app/features/menu/presentation/widgets/add_menu_item_dialog.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/edit_category_dialog.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/edit_menu_item_dialog.dart';
+import 'package:merchant_app/features/menu/presentation/widgets/link_modifier_group_sheet.dart';
+import 'package:merchant_app/features/menu/presentation/widgets/modifier_dialog.dart';
+import 'package:merchant_app/features/menu/presentation/widgets/modifier_group_dialog.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
@@ -399,12 +402,59 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
           tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           iconColor: AppColors.primary,
           collapsedIconColor: const Color(0xFF64748B),
-          title: Text(
-            group.name,
-            style: AppTypography.heading6.copyWith(
-              color: AppColors.semanticGrayNeutralFgHigh,
-              fontWeight: FontWeight.w900,
-            ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  group.name,
+                  style: AppTypography.heading6.copyWith(
+                    color: AppColors.semanticGrayNeutralFgHigh,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (!group.isActive)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    'ปิดอยู่',
+                    style: AppTypography.label3
+                        .copyWith(color: const Color(0xFF64748B)),
+                  ),
+                ),
+              IconButton(
+                tooltip: 'ใช้กับเมนู',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) => LinkModifierGroupSheet(group: group),
+                ),
+                icon: const AppIcon(
+                  AppIcons.forkSpoonLine,
+                  size: 18,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              IconButton(
+                tooltip: 'แก้ไขกลุ่ม',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => ModifierGroupDialog(group: group),
+                ),
+                icon: const AppIcon(
+                  AppIcons.pencilFill,
+                  size: 18,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
           ),
           subtitle: Text(
             'ใช้กับ ${group.itemCount} รายการ',
@@ -415,7 +465,13 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
           children: [
             const Divider(height: 1, color: Color(0xFFF1F5F9)),
             ...group.modifiers.map(
-              (mod) => Padding(
+              (mod) => InkWell(
+                onTap: () => showDialog(
+                  context: context,
+                  builder: (_) =>
+                      ModifierDialog(groupId: group.id, modifier: mod),
+                ),
+                child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 12,
@@ -457,8 +513,30 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                   ],
                 ),
               ),
+              ),
             ),
-            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => ModifierDialog(groupId: group.id),
+                  ),
+                  icon: const AppIcon(
+                    AppIcons.plus,
+                    size: 16,
+                    color: AppColors.primary,
+                  ),
+                  label: Text(
+                    'เพิ่มตัวเลือก',
+                    style:
+                        AppTypography.label3.copyWith(color: AppColors.primary),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -540,7 +618,13 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                   icon: const Icon(Icons.tune_rounded),
                   title: 'เพิ่มกลุ่มตัวเลือกเสริม',
                   subtitle: 'ความหวาน, ขนาดไซส์',
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(context);
+                    showDialog(
+                      context: context,
+                      builder: (_) => const ModifierGroupDialog(),
+                    );
+                  },
                 ),
               ],
             ),
