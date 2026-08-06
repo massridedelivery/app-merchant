@@ -149,6 +149,20 @@ class MockInterceptor extends Interceptor {
           statusCode: 200,
         ));
       }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'updated successfully'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
+        ));
+      }
     }
 
     // ─── MENU ITEMS ─────────────────────────────────────────
@@ -167,6 +181,71 @@ class MockInterceptor extends Interceptor {
             'modifiers': [],
           },
           statusCode: 201,
+        ));
+      }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'item updated successfully'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
+        ));
+      }
+    }
+
+    // ─── MODIFIERS (inside a group, and standalone) ──────────
+    if (path.contains('/modifiers')) {
+      if (method == 'POST') {
+        final data = options.data as Map<String, dynamic>;
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {
+            'id': 'mod_new_${DateTime.now().millisecondsSinceEpoch}',
+            'name': data['name'],
+            'price': data['price'] ?? 0.0,
+            'is_available': true,
+            'sort_order': 1,
+          },
+          statusCode: 201,
+        ));
+      }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'modifier updated'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
+        ));
+      }
+    }
+
+    // ─── ITEM ↔ MODIFIER GROUP LINKS ─────────────────────────
+    if (path.contains('/restaurant/items/') &&
+        path.contains('/modifier-groups')) {
+      if (method == 'POST') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'modifier group linked to item'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
         ));
       }
     }
@@ -193,6 +272,20 @@ class MockInterceptor extends Interceptor {
             'modifiers': [],
           },
           statusCode: 201,
+        ));
+      }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'modifier group updated'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
         ));
       }
     }

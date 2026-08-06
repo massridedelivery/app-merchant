@@ -22,6 +22,21 @@ class MenuCategory {
       items: (json['items'] as List?)?.map((i) => MenuItem.fromJson(i)).toList() ?? [],
     );
   }
+
+  MenuCategory copyWith({
+    String? name,
+    int? sortOrder,
+    bool? isActive,
+    List<MenuItem>? items,
+  }) {
+    return MenuCategory(
+      id: id,
+      name: name ?? this.name,
+      sortOrder: sortOrder ?? this.sortOrder,
+      isActive: isActive ?? this.isActive,
+      items: items ?? this.items,
+    );
+  }
 }
 
 class MenuItem {
@@ -57,6 +72,27 @@ class MenuItem {
       modifiers: json['modifiers'] as List?,
     );
   }
+
+  MenuItem copyWith({
+    String? categoryId,
+    String? name,
+    String? description,
+    double? price,
+    String? imageUrl,
+    bool? isAvailable,
+    List<dynamic>? modifiers,
+  }) {
+    return MenuItem(
+      id: id,
+      categoryId: categoryId ?? this.categoryId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      price: price ?? this.price,
+      imageUrl: imageUrl ?? this.imageUrl,
+      isAvailable: isAvailable ?? this.isAvailable,
+      modifiers: modifiers ?? this.modifiers,
+    );
+  }
 }
 
 class ModifierItem {
@@ -78,6 +114,15 @@ class ModifierItem {
       name: json['name'] ?? '',
       price: (json['price'] ?? 0.0).toDouble(),
       isAvailable: json['is_available'] ?? true,
+    );
+  }
+
+  ModifierItem copyWith({String? name, double? price, bool? isAvailable}) {
+    return ModifierItem(
+      id: id,
+      name: name ?? this.name,
+      price: price ?? this.price,
+      isAvailable: isAvailable ?? this.isAvailable,
     );
   }
 }
@@ -112,6 +157,25 @@ class ModifierGroup {
       modifiers: (json['modifiers'] as List? ?? [])
           .map((m) => ModifierItem.fromJson(m as Map<String, dynamic>))
           .toList(),
+    );
+  }
+
+  ModifierGroup copyWith({
+    String? name,
+    int? minSelect,
+    int? maxSelect,
+    bool? isActive,
+    int? itemCount,
+    List<ModifierItem>? modifiers,
+  }) {
+    return ModifierGroup(
+      id: id,
+      name: name ?? this.name,
+      minSelect: minSelect ?? this.minSelect,
+      maxSelect: maxSelect ?? this.maxSelect,
+      isActive: isActive ?? this.isActive,
+      itemCount: itemCount ?? this.itemCount,
+      modifiers: modifiers ?? this.modifiers,
     );
   }
 }
