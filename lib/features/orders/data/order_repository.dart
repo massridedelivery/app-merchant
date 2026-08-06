@@ -37,6 +37,18 @@ class OrderRepository {
   Future<void> markReady(String id) =>
       _api.dio.post('/restaurant/orders/$id/ready');
 
+  /// `PUT /restaurant/orders/{id}/ops` (4.6). Adjusts the promised prep time
+  /// and flags order items the kitchen cannot make.
+  Future<void> updateOps({
+    required String id,
+    required int prepTimeAdjustmentMin,
+    required List<String> oosOrderItemIds,
+  }) =>
+      _api.dio.put('/restaurant/orders/$id/ops', data: {
+        'prep_time_adjustment_min': prepTimeAdjustmentMin,
+        'oos_order_item_ids': oosOrderItemIds,
+      });
+
   List<Order> _parseList(dynamic data) => (data as List)
       .map((j) => Order.fromJson(j as Map<String, dynamic>))
       .toList();

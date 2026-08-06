@@ -309,6 +309,13 @@ class MockInterceptor extends Interceptor {
     }
 
     // ─── ORDER ACTIONS ──────────────────────────────────────
+    if (path.contains('/restaurant/orders/') && path.contains('/ops')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {'message': 'order updated successfully'},
+        statusCode: 200,
+      ));
+    }
     if (path.contains('/restaurant/orders/') && path.contains('/accept')) {
       return handler.resolve(Response(requestOptions: options, data: {'message': 'RESTAURANT_ACCEPTED'}, statusCode: 200));
     }

@@ -88,6 +88,12 @@ class Order {
   final String placedAt;
   final List<OrderItem> items;
 
+  /// Extra minutes the restaurant added to the original ETA (may be negative).
+  final int prepTimeAdjustmentMin;
+
+  /// Order-item ids the restaurant flagged as out of stock.
+  final List<String> oosItemIds;
+
   Order({
     required this.id,
     required this.customerId,
@@ -100,6 +106,8 @@ class Order {
     required this.originalEtaMin,
     required this.placedAt,
     required this.items,
+    this.prepTimeAdjustmentMin = 0,
+    this.oosItemIds = const [],
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -115,10 +123,26 @@ class Order {
       originalEtaMin: json['original_eta_min'] ?? 30,
       placedAt: json['placed_at'] ?? '',
       items: (json['items'] as List? ?? []).map((i) => OrderItem.fromJson(i as Map<String, dynamic>)).toList(),
+      prepTimeAdjustmentMin: json['prep_time_adjustment_min'] ?? 0,
+      oosItemIds: _parseOosItems(json['oos_items']),
     );
   }
 
-  Order copyWith({String? status}) {
+  /// The guide shows `oos_items` only as an empty array, so both an id list and
+  /// a list of objects are accepted.
+  static List<String> _parseOosItems(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((e) => e is Map ? (e['id'] ?? e['order_item_id']) : e)
+        .whereType<String>()
+        .toList();
+  }
+
+  Order copyWith({
+    String? status,
+    int? prepTimeAdjustmentMin,
+    List<String>? oosItemIds,
+  }) {
     return Order(
       id: id,
       customerId: customerId,
@@ -131,8 +155,13 @@ class Order {
       originalEtaMin: originalEtaMin,
       placedAt: placedAt,
       items: items,
+      prepTimeAdjustmentMin: prepTimeAdjustmentMin ?? this.prepTimeAdjustmentMin,
+      oosItemIds: oosItemIds ?? this.oosItemIds,
     );
   }
+
+  /// The ETA the customer should now expect.
+  int get effectiveEtaMin => originalEtaMin + prepTimeAdjustmentMin;
 
   String get shortId => id.length > 9 ? id.substring(id.length - 9) : id;
 

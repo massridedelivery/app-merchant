@@ -7,6 +7,7 @@ import 'package:merchant_app/features/home/presentation/widgets/status_bottom_sh
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
+import 'package:merchant_app/features/orders/presentation/widgets/order_ops_sheet.dart';
 import 'package:merchant_app/features/orders/providers/order_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
@@ -583,6 +584,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             ),
           ),
 
+          // ─── Kitchen adjustments ───────────────────────────
+          if (_canAdjustOps(order.status))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: _buildOpsRow(order),
+            ),
+
           // ─── Action Buttons ────────────────────────────────
           if (_shouldShowActions(order.status))
             Padding(
@@ -676,6 +684,61 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           'text': const Color(0xFF64748B),
         };
     }
+  }
+
+  /// Prep time and out-of-stock only mean something while the kitchen still
+  /// owns the order — not once a rider has it.
+  bool _canAdjustOps(String status) =>
+      status == OrderStatus.restaurantAccepted ||
+      status == OrderStatus.preparing;
+
+  Widget _buildOpsRow(Order order) {
+    final adjusted = order.prepTimeAdjustmentMin != 0;
+    final oosCount = order.oosItemIds.length;
+
+    return Row(
+      children: [
+        if (adjusted || oosCount > 0)
+          Expanded(
+            child: Text(
+              [
+                if (adjusted)
+                  '${order.prepTimeAdjustmentMin > 0 ? '+' : ''}'
+                      '${order.prepTimeAdjustmentMin} นาที',
+                if (oosCount > 0) 'ของหมด $oosCount รายการ',
+              ].join(' · '),
+              style: AppTypography.caption5.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        else
+          const Spacer(),
+        TextButton.icon(
+          onPressed: () => showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (_) => OrderOpsSheet(order: order),
+          ),
+          icon: const AppIcon(
+            AppIcons.clockLine,
+            size: 16,
+            color: Color(0xFF64748B),
+          ),
+          label: Text(
+            'ปรับเวลา / ของหมด',
+            style: AppTypography.label3.copyWith(
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   bool _shouldShowActions(String status) =>

@@ -236,6 +236,39 @@ class OrderNotifier extends StateNotifier<OrderState> {
     }
   }
 
+  /// Adjusts prep time and out-of-stock flags without changing the order's
+  /// status, so the order stays in whichever bucket it is already in.
+  Future<bool> updateOps({
+    required String id,
+    required int prepTimeAdjustmentMin,
+    required List<String> oosItemIds,
+  }) async {
+    try {
+      await _repository.updateOps(
+        id: id,
+        prepTimeAdjustmentMin: prepTimeAdjustmentMin,
+        oosOrderItemIds: oosItemIds,
+      );
+      if (!mounted) return true;
+
+      Order patch(Order o) => o.id == id
+          ? o.copyWith(
+              prepTimeAdjustmentMin: prepTimeAdjustmentMin,
+              oosItemIds: oosItemIds,
+            )
+          : o;
+
+      state = state.copyWith(
+        preparing: state.preparing.map(patch).toList(),
+        ready: state.ready.map(patch).toList(),
+        delivering: state.delivering.map(patch).toList(),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void dismissNewOrderNotification() {
     state = state.copyWith(clearNew: true);
   }
