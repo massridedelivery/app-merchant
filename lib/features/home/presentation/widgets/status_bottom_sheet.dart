@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
-import 'package:merchant_app/features/profile/presentation/screens/opening_hours_screen.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/opening_hours_screen.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 

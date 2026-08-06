@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
-import 'package:merchant_app/features/profile/presentation/screens/closing_hours_screen.dart';
-import 'package:merchant_app/features/profile/presentation/widgets/edit_store_profile_dialog.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/closing_hours_screen.dart';
+import 'package:merchant_app/features/restaurant/presentation/widgets/edit_store_profile_dialog.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
