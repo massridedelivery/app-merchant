@@ -1,19 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:merchant_app/features/auth/data/auth_repository.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 // State
 class AuthState {
   final bool isLoading;
-  final String? error;
   final bool isAuthenticated;
 
-  AuthState({this.isLoading = false, this.error, this.isAuthenticated = false});
+  AuthState({this.isLoading = false, this.isAuthenticated = false});
 
-  AuthState copyWith({bool? isLoading, String? error, bool? isAuthenticated}) {
+  AuthState copyWith({bool? isLoading, bool? isAuthenticated}) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
     );
   }
@@ -38,45 +37,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> login(String username, String password) async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> login(String username, String password) async {
+    state = state.copyWith(isLoading: true);
     try {
       final token =
           await _repository.login(username: username, password: password);
 
       if (token == null) {
-        if (!mounted) return false;
-        state = state.copyWith(isLoading: false, error: 'Login failed');
-        return false;
+        throw const AppFailure('เข้าสู่ระบบไม่สำเร็จ');
       }
 
       await _repository.persistToken(token);
-      if (!mounted) return true;
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, isAuthenticated: true);
-      return true;
+    } on AppFailure {
+      if (mounted) state = state.copyWith(isLoading: false);
+      rethrow;
     } on DioException catch (e) {
-      if (!mounted) return false;
-      state = state.copyWith(
-          isLoading: false,
-          error: e.response?.data['message'] ?? 'Connection error');
-      return false;
+      if (mounted) state = state.copyWith(isLoading: false);
+      throw AppFailure(
+          e.response?.data['message'] ?? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', e);
     } catch (e) {
-      if (!mounted) return false;
-      state = state.copyWith(isLoading: false, error: e.toString());
-      return false;
+      if (mounted) state = state.copyWith(isLoading: false);
+      throw AppFailure('เข้าสู่ระบบไม่สำเร็จ', e);
     }
   }
 
   Future<void> mockLogin() async {
     state = state.copyWith(isLoading: true);
     await Future.delayed(const Duration(milliseconds: 500));
-    await _repository.persistToken('mock_token_123');
+    try {
+      await _repository.persistToken('mock_token_123');
+    } catch (e) {
+      if (mounted) state = state.copyWith(isLoading: false);
+      throw AppFailure('เข้าสู่ระบบไม่สำเร็จ', e);
+    }
     if (!mounted) return;
     state = state.copyWith(isLoading: false, isAuthenticated: true);
   }
 
   Future<void> logout() async {
-    await _repository.forgetToken();
+    try {
+      await _repository.forgetToken();
+    } catch (e) {
+      throw AppFailure('ออกจากระบบไม่สำเร็จ', e);
+    }
     if (!mounted) return;
     state = state.copyWith(isAuthenticated: false);
   }

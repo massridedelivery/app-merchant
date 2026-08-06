@@ -11,6 +11,7 @@ import 'package:merchant_app/features/orders/presentation/widgets/order_ops_shee
 import 'package:merchant_app/features/orders/providers/order_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
+import 'package:merchant_app/core/errors/failure_snack_bar.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
@@ -161,9 +162,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                     backgroundColor: Colors.transparent,
                     builder: (_) => StatusBottomSheet(
                       currentStatus: profile.status,
-                      onStatusChanged: (s) => ref
-                          .read(restaurantProfileProvider.notifier)
-                          .setStatus(s),
+                      onStatusChanged: (s) => runGuarded(
+                        context,
+                        () => ref
+                            .read(restaurantProfileProvider.notifier)
+                            .setStatus(s),
+                      ),
                     ),
                   );
                 },
@@ -752,7 +756,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => notifier.rejectOrder(order.id),
+              onPressed: () => runGuarded(
+                  context, () => notifier.rejectOrder(order.id)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF64748B),
                 side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -771,7 +776,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: () => notifier.acceptOrder(order.id),
+              onPressed: () => runGuarded(
+                  context, () => notifier.acceptOrder(order.id)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 shape: RoundedRectangleBorder(
@@ -795,7 +801,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => notifier.markPreparing(order.id),
+          onPressed: () => runGuarded(
+                  context, () => notifier.markPreparing(order.id)),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             shape: RoundedRectangleBorder(
@@ -814,7 +821,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => notifier.markReady(order.id),
+          onPressed: () => runGuarded(
+                  context, () => notifier.markReady(order.id)),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF22C55E),
             // Keep green for 'ready' as it's a success state

@@ -6,6 +6,7 @@ import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -30,18 +31,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) return;
 
-    final success = await ref.read(authProvider.notifier).login(
-          _usernameController.text.trim(),
-          _passwordController.text,
-        );
-
-    if (success && mounted) {
-      context.go('/');
-    } else if (mounted) {
-      final error = ref.read(authProvider).error;
+    try {
+      await ref.read(authProvider.notifier).login(
+            _usernameController.text.trim(),
+            _passwordController.text,
+          );
+      if (mounted) context.go('/');
+    } on AppFailure catch (failure) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error ?? 'Login failed'),
+          content: Text(failure.message),
           backgroundColor: AppColors.error,
         ),
       );

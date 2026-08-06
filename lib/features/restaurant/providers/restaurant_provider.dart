@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/features/restaurant/data/restaurant_repository.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 class RestaurantProfileNotifier
     extends StateNotifier<AsyncValue<RestaurantProfile>> {
@@ -32,13 +33,17 @@ class RestaurantProfileNotifier
     String? address,
     double? minOrderAmount,
   }) async {
-    await _repository.updateProfile(
-      name: name,
-      description: description,
-      cuisineType: cuisineType,
-      address: address,
-      minOrderAmount: minOrderAmount,
-    );
+    try {
+      await _repository.updateProfile(
+        name: name,
+        description: description,
+        cuisineType: cuisineType,
+        address: address,
+        minOrderAmount: minOrderAmount,
+      );
+    } catch (e) {
+      throw AppFailure('ไม่สามารถบันทึกข้อมูลร้านได้', e);
+    }
     if (!mounted || !state.hasValue) return;
     state = AsyncValue.data(state.value!.copyWith(
       name: name,
@@ -71,7 +76,7 @@ class RestaurantProfileNotifier
         ),
       );
     } catch (e) {
-      // Handle gracefully
+      throw AppFailure('ไม่สามารถเปลี่ยนสถานะร้านได้', e);
     }
   }
 

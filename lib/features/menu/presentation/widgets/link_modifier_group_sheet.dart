@@ -4,6 +4,7 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 /// Attaches a modifier group to menu items, or detaches it.
 ///
@@ -32,12 +33,16 @@ class _LinkModifierGroupSheetState
     final notifier = ref.read(modifierGroupProvider.notifier);
     var failures = 0;
     for (final itemId in _selected) {
-      final ok = link
-          ? await notifier.linkToItem(
-              itemId: itemId, groupId: widget.group.id)
-          : await notifier.unlinkFromItem(
+      try {
+        if (link) {
+          await notifier.linkToItem(itemId: itemId, groupId: widget.group.id);
+        } else {
+          await notifier.unlinkFromItem(
               itemId: itemId, groupId: widget.group.id);
-      if (!ok) failures++;
+        }
+      } on AppFailure {
+        failures++;
+      }
     }
     if (!mounted) return;
     setState(() => _isLoading = false);

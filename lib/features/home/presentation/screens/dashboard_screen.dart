@@ -8,6 +8,7 @@ import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart'
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
+import 'package:merchant_app/core/errors/failure_snack_bar.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -727,7 +728,10 @@ class DashboardScreen extends ConsumerWidget {
       builder: (_) => StatusBottomSheet(
         currentStatus: profile.status,
         onStatusChanged: (s) =>
-            ref.read(restaurantProfileProvider.notifier).setStatus(s),
+            runGuarded(
+          context,
+          () => ref.read(restaurantProfileProvider.notifier).setStatus(s),
+        ),
       ),
     );
   }

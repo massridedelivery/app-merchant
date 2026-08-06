@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/features/menu/data/menu_repository.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 // ─── Menu Notifier ─────────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
       if (newCategory == null || !mounted) return;
       state = AsyncValue.data([..._categories, newCategory]);
     } catch (e) {
-      throw Exception('ไม่สามารถเพิ่มหมวดหมู่ได้');
+      throw AppFailure('ไม่สามารถเพิ่มหมวดหมู่ได้', e);
     }
   }
 
@@ -65,7 +66,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
         [for (final c in _categories) c.id == id ? updated : c],
       );
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขหมวดหมู่ได้');
+      throw AppFailure('ไม่สามารถแก้ไขหมวดหมู่ได้', e);
     }
   }
 
@@ -77,7 +78,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
         _categories.where((c) => c.id != id).toList(),
       );
     } catch (e) {
-      throw Exception('ไม่สามารถลบหมวดหมู่ได้');
+      throw AppFailure('ไม่สามารถลบหมวดหมู่ได้', e);
     }
   }
 
@@ -102,7 +103,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
           c.id == categoryId ? c.copyWith(items: [...c.items, newItem]) : c,
       ]);
     } catch (e) {
-      throw Exception('ไม่สามารถเพิ่มเมนูได้');
+      throw AppFailure('ไม่สามารถเพิ่มเมนูได้', e);
     }
   }
 
@@ -145,7 +146,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
           ),
       ]);
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขเมนูได้');
+      throw AppFailure('ไม่สามารถแก้ไขเมนูได้', e);
     }
   }
 
@@ -158,7 +159,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
           c.copyWith(items: c.items.where((i) => i.id != id).toList()),
       ]);
     } catch (e) {
-      throw Exception('ไม่สามารถลบเมนูได้');
+      throw AppFailure('ไม่สามารถลบเมนูได้', e);
     }
   }
 
@@ -211,7 +212,7 @@ class ModifierGroupNotifier
       if (group == null || !mounted) return;
       state = AsyncValue.data([..._groups, group]);
     } catch (e) {
-      throw Exception('ไม่สามารถเพิ่มกลุ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถเพิ่มกลุ่มตัวเลือกได้', e);
     }
   }
 
@@ -241,7 +242,7 @@ class ModifierGroupNotifier
         [for (final g in _groups) g.id == id ? updated : g],
       );
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขกลุ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถแก้ไขกลุ่มตัวเลือกได้', e);
     }
   }
 
@@ -251,7 +252,7 @@ class ModifierGroupNotifier
       if (!mounted) return;
       state = AsyncValue.data(_groups.where((g) => g.id != id).toList());
     } catch (e) {
-      throw Exception('ไม่สามารถลบกลุ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถลบกลุ่มตัวเลือกได้', e);
     }
   }
 
@@ -274,7 +275,7 @@ class ModifierGroupNotifier
         (g) => g.copyWith(modifiers: [...g.modifiers, modifier]),
       ));
     } catch (e) {
-      throw Exception('ไม่สามารถเพิ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถเพิ่มตัวเลือกได้', e);
     }
   }
 
@@ -303,7 +304,7 @@ class ModifierGroupNotifier
         ]),
       ));
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขตัวเลือกได้');
+      throw AppFailure('ไม่สามารถแก้ไขตัวเลือกได้', e);
     }
   }
 
@@ -321,7 +322,7 @@ class ModifierGroupNotifier
         ),
       ));
     } catch (e) {
-      throw Exception('ไม่สามารถลบตัวเลือกได้');
+      throw AppFailure('ไม่สามารถลบตัวเลือกได้', e);
     }
   }
 
@@ -331,7 +332,7 @@ class ModifierGroupNotifier
   // these only talk to the server. Refresh the menu afterwards if the screen
   // needs the new wiring.
 
-  Future<bool> linkToItem({
+  Future<void> linkToItem({
     required String itemId,
     required String groupId,
     int sortOrder = 1,
@@ -342,13 +343,12 @@ class ModifierGroupNotifier
         groupId: groupId,
         sortOrder: sortOrder,
       );
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      throw AppFailure('ไม่สามารถผูกกลุ่มตัวเลือกกับเมนูได้', e);
     }
   }
 
-  Future<bool> unlinkFromItem({
+  Future<void> unlinkFromItem({
     required String itemId,
     required String groupId,
   }) async {
@@ -357,9 +357,8 @@ class ModifierGroupNotifier
         itemId: itemId,
         groupId: groupId,
       );
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      throw AppFailure('ไม่สามารถถอดกลุ่มตัวเลือกออกจากเมนูได้', e);
     }
   }
 

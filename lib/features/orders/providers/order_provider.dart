@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/features/orders/data/order_repository.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 class OrderState {
   final List<Order> preparing; // OrderStatus.inKitchen
@@ -196,49 +197,45 @@ class OrderNotifier extends StateNotifier<OrderState> {
     } catch (_) {}
   }
 
-  Future<bool> acceptOrder(String id) async {
+  Future<void> acceptOrder(String id) async {
     try {
       await _repository.accept(id);
       _applyStatus(id, OrderStatus.restaurantAccepted);
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      throw AppFailure('ไม่สามารถรับออเดอร์ได้', e);
     }
   }
 
-  Future<bool> rejectOrder(String id) async {
+  Future<void> rejectOrder(String id) async {
     try {
       await _repository.reject(id);
       _applyStatus(id, OrderStatus.restaurantRejected);
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      throw AppFailure('ไม่สามารถปฏิเสธออเดอร์ได้', e);
     }
   }
 
-  Future<bool> markPreparing(String id) async {
+  Future<void> markPreparing(String id) async {
     try {
       await _repository.markPreparing(id);
       _applyStatus(id, OrderStatus.preparing);
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      throw AppFailure('ไม่สามารถอัปเดตสถานะเป็นกำลังเตรียมได้', e);
     }
   }
 
-  Future<bool> markReady(String id) async {
+  Future<void> markReady(String id) async {
     try {
       await _repository.markReady(id);
       _applyStatus(id, OrderStatus.readyForPickup);
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      throw AppFailure('ไม่สามารถอัปเดตสถานะเป็นพร้อมส่งได้', e);
     }
   }
 
   /// Adjusts prep time and out-of-stock flags without changing the order's
   /// status, so the order stays in whichever bucket it is already in.
-  Future<bool> updateOps({
+  Future<void> updateOps({
     required String id,
     required int prepTimeAdjustmentMin,
     required List<String> oosItemIds,
@@ -249,7 +246,7 @@ class OrderNotifier extends StateNotifier<OrderState> {
         prepTimeAdjustmentMin: prepTimeAdjustmentMin,
         oosOrderItemIds: oosItemIds,
       );
-      if (!mounted) return true;
+      if (!mounted) return;
 
       Order patch(Order o) => o.id == id
           ? o.copyWith(
@@ -263,9 +260,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
         ready: state.ready.map(patch).toList(),
         delivering: state.delivering.map(patch).toList(),
       );
-      return true;
-    } catch (_) {
-      return false;
+    } catch (e) {
+      throw AppFailure('ไม่สามารถอัปเดตออเดอร์ได้', e);
     }
   }
 

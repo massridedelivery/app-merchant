@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/ads/providers/ad_provider.dart';
+import 'package:merchant_app/core/errors/failure_snack_bar.dart';
 
 class AdsScreen extends ConsumerStatefulWidget {
   const AdsScreen({super.key});
@@ -71,9 +72,15 @@ class _AdsScreenState extends ConsumerState<AdsScreen> {
                     final bid = double.tryParse(_bidController.text) ?? 0;
 
                     if (ad == null) {
-                      ref.read(adProvider.notifier).createAd(budget, bid);
+                      runGuarded(context,
+                          () => ref.read(adProvider.notifier)
+                              .createAd(budget, bid),
+                          successMessage: 'สร้างแคมเปญแล้ว');
                     } else {
-                      ref.read(adProvider.notifier).updateAd(budget, bid, _isActive);
+                      runGuarded(context,
+                          () => ref.read(adProvider.notifier)
+                              .updateAd(budget, bid, _isActive),
+                          successMessage: 'บันทึกแคมเปญแล้ว');
                     }
                   },
                   style: ElevatedButton.styleFrom(

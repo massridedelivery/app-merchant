@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/features/ads/data/ad_repository.dart';
 import 'package:merchant_app/features/ads/models/ad_campaign.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
   AdNotifier(this._repository) : super(const AsyncValue.loading());
@@ -20,20 +21,19 @@ class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
     }
   }
 
-  Future<bool> createAd(double dailyBudget, double bidPerClick) async {
+  Future<void> createAd(double dailyBudget, double bidPerClick) async {
     try {
       await _repository.createAd(
         dailyBudget: dailyBudget,
         bidPerClick: bidPerClick,
       );
       fetchAd(); // Reload
-      return true;
     } catch (e) {
-      return false;
+      throw AppFailure('ไม่สามารถสร้างแคมเปญโฆษณาได้', e);
     }
   }
 
-  Future<bool> updateAd(
+  Future<void> updateAd(
       double dailyBudget, double bidPerClick, bool isActive) async {
     try {
       await _repository.updateAd(
@@ -42,9 +42,8 @@ class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
         isActive: isActive,
       );
       fetchAd(); // Reload
-      return true;
     } catch (e) {
-      return false;
+      throw AppFailure('ไม่สามารถแก้ไขแคมเปญโฆษณาได้', e);
     }
   }
 }

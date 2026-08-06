@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 import 'package:merchant_app/core/network/api_client.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/features/orders/data/order_repository.dart';
@@ -145,13 +146,12 @@ void main() {
     });
 
     test('patches the order without moving it out of its bucket', () async {
-      final ok = await container.read(orderProvider.notifier).updateOps(
+      await container.read(orderProvider.notifier).updateOps(
             id: 'order-123',
             prepTimeAdjustmentMin: 10,
             oosItemIds: ['orderitem-2'],
           );
 
-      expect(ok, isTrue);
       expect(repo.lastOps, {
         'id': 'order-123',
         'prep': 10,
@@ -179,16 +179,18 @@ void main() {
       expect(container.read(orderProvider).preparing.single.oosItemIds, isEmpty);
     });
 
-    test('a failed call reports false and leaves state alone', () async {
+    test('a failed call throws AppFailure and leaves state alone', () async {
       repo.failOps = true;
 
-      final ok = await container.read(orderProvider.notifier).updateOps(
-            id: 'order-123',
-            prepTimeAdjustmentMin: 30,
-            oosItemIds: ['orderitem-1'],
-          );
+      await expectLater(
+        container.read(orderProvider.notifier).updateOps(
+              id: 'order-123',
+              prepTimeAdjustmentMin: 30,
+              oosItemIds: ['orderitem-1'],
+            ),
+        throwsA(isA<AppFailure>()),
+      );
 
-      expect(ok, isFalse);
       final order = container.read(orderProvider).preparing.single;
       expect(order.prepTimeAdjustmentMin, 0);
       expect(order.oosItemIds, isEmpty);

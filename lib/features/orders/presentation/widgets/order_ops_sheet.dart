@@ -4,6 +4,7 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
 import 'package:merchant_app/features/orders/providers/order_provider.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 /// Kitchen controls for a live order: buy more prep time and flag items that
 /// cannot be made. Both go to `PUT /restaurant/orders/{id}/ops` together.
@@ -29,21 +30,30 @@ class _OrderOpsSheetState extends ConsumerState<OrderOpsSheet> {
 
   Future<void> _save() async {
     setState(() => _isLoading = true);
-    final ok = await ref.read(orderProvider.notifier).updateOps(
-          id: widget.order.id,
-          prepTimeAdjustmentMin: _adjustment,
-          oosItemIds: _oos.toList(),
-        );
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(ok ? 'อัปเดตออเดอร์แล้ว' : 'อัปเดตไม่สำเร็จ'),
-        backgroundColor: ok ? AppColors.success : AppColors.error,
-      ),
-    );
-    if (ok) Navigator.pop(context, true);
+    try {
+      await ref.read(orderProvider.notifier).updateOps(
+            id: widget.order.id,
+            prepTimeAdjustmentMin: _adjustment,
+            oosItemIds: _oos.toList(),
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('อัปเดตออเดอร์แล้ว'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.pop(context, true);
+    } on AppFailure catch (failure) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
