@@ -30,8 +30,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _init() async {
     try {
       final token = await _repository.currentToken();
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, isAuthenticated: token != null);
     } catch (e) {
+      if (!mounted) return;
       state = state.copyWith(isLoading: false, isAuthenticated: false);
     }
   }
@@ -43,19 +45,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
           await _repository.login(username: username, password: password);
 
       if (token == null) {
+        if (!mounted) return false;
         state = state.copyWith(isLoading: false, error: 'Login failed');
         return false;
       }
 
       await _repository.persistToken(token);
+      if (!mounted) return true;
       state = state.copyWith(isLoading: false, isAuthenticated: true);
       return true;
     } on DioException catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(
           isLoading: false,
           error: e.response?.data['message'] ?? 'Connection error');
       return false;
     } catch (e) {
+      if (!mounted) return false;
       state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }
@@ -65,11 +71,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
     await Future.delayed(const Duration(milliseconds: 500));
     await _repository.persistToken('mock_token_123');
+    if (!mounted) return;
     state = state.copyWith(isLoading: false, isAuthenticated: true);
   }
 
   Future<void> logout() async {
     await _repository.forgetToken();
+    if (!mounted) return;
     state = state.copyWith(isAuthenticated: false);
   }
 }
