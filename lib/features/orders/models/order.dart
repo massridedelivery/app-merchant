@@ -70,6 +70,34 @@ class OrderItemModifier {
   }
 }
 
+/// Who is collecting the order. Present only once dispatch has assigned
+/// someone (SCRUM-53 §4).
+class DriverInfo {
+  const DriverInfo({
+    required this.fullName,
+    required this.phone,
+    this.vehiclePlate,
+    this.vehicleModel,
+    this.rating,
+  });
+
+  final String fullName;
+  final String phone;
+  final String? vehiclePlate;
+  final String? vehicleModel;
+  final double? rating;
+
+  factory DriverInfo.fromJson(Map<String, dynamic> json) {
+    return DriverInfo(
+      fullName: json['full_name'] ?? '',
+      phone: json['phone'] ?? '',
+      vehiclePlate: json['vehicle_plate'],
+      vehicleModel: json['vehicle_model'],
+      rating: (json['rating'] as num?)?.toDouble(),
+    );
+  }
+}
+
 class OrderItem {
   final String id;
   final String menuItemId;
@@ -80,6 +108,11 @@ class OrderItem {
   final List<OrderItemModifier> selectedModifiers;
   final String? notes;
 
+  /// Escaped JSON — the column is JSONB but every read casts it to text, so it
+  /// arrives as a string that has to be parsed a second time. Unlike
+  /// `selected_modifiers`, which the server unmarshals for us (SCRUM-53 §4).
+  final String? variantOptions;
+
   OrderItem({
     required this.id,
     required this.menuItemId,
@@ -89,6 +122,7 @@ class OrderItem {
     required this.subtotal,
     this.selectedModifiers = const [],
     this.notes,
+    this.variantOptions,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
@@ -107,6 +141,7 @@ class OrderItem {
               .toList()
           : const [],
       notes: json['notes'],
+      variantOptions: json['variant_options'],
     );
   }
 
@@ -136,6 +171,35 @@ class Order {
   /// Order-item ids the restaurant flagged as out of stock.
   final List<String> oosItemIds;
 
+  final String? customerName;
+  final String? customerPhone;
+
+  /// Gate codes, "call on arrival" — the kitchen and the rider both need it.
+  final String? deliveryNotes;
+
+  /// PENDING | PAID | FAILED, absent on postpaid orders that never went
+  /// through the gateway. PENDING never reaches this app: unpaid prepaid
+  /// orders are excluded from /orders/pending (SCRUM-53 §4, §10).
+  final String? paymentStatus;
+
+  /// SAVER | STANDARD | PRIORITY.
+  final String? tier;
+
+  final double promoDiscount;
+
+  /// Display-only; the merchant does not act on it.
+  final double platformCommission;
+
+  final String? driverId;
+  final DriverInfo? driverInfo;
+  final String? deliveredAt;
+
+  // Deliberately not modelled — no screen consumes them and they would be
+  // noise: polyline, trace_id, batch_id/batch_sequence, batched_eta_min,
+  // delay_queue_until, restaurant_* (our own data), delivery_lat/lng,
+  // customer_distance_km, fulfillment_distance_km, original_total_amount,
+  // promo_min_spend, batching_enabled.
+
   Order({
     required this.id,
     required this.customerId,
@@ -150,6 +214,16 @@ class Order {
     required this.items,
     this.prepTimeAdjustmentMin = 0,
     this.oosItemIds = const [],
+    this.customerName,
+    this.customerPhone,
+    this.deliveryNotes,
+    this.paymentStatus,
+    this.tier,
+    this.promoDiscount = 0,
+    this.platformCommission = 0,
+    this.driverId,
+    this.driverInfo,
+    this.deliveredAt,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -167,6 +241,18 @@ class Order {
       items: (json['items'] as List? ?? []).map((i) => OrderItem.fromJson(i as Map<String, dynamic>)).toList(),
       prepTimeAdjustmentMin: json['prep_time_adjustment_min'] ?? 0,
       oosItemIds: _parseOosItems(json['oos_items']),
+      customerName: json['customer_name'],
+      customerPhone: json['customer_phone'],
+      deliveryNotes: json['delivery_notes'],
+      paymentStatus: json['payment_status'],
+      tier: json['tier'],
+      promoDiscount: (json['promo_discount'] ?? 0).toDouble(),
+      platformCommission: (json['platform_commission'] ?? 0).toDouble(),
+      driverId: json['driver_id'],
+      driverInfo: json['driver_info'] is Map<String, dynamic>
+          ? DriverInfo.fromJson(json['driver_info'] as Map<String, dynamic>)
+          : null,
+      deliveredAt: json['delivered_at'],
     );
   }
 
@@ -199,8 +285,23 @@ class Order {
       items: items,
       prepTimeAdjustmentMin: prepTimeAdjustmentMin ?? this.prepTimeAdjustmentMin,
       oosItemIds: oosItemIds ?? this.oosItemIds,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      deliveryNotes: deliveryNotes,
+      paymentStatus: paymentStatus,
+      tier: tier,
+      promoDiscount: promoDiscount,
+      platformCommission: platformCommission,
+      driverId: driverId,
+      driverInfo: driverInfo,
+      deliveredAt: deliveredAt,
     );
   }
+
+  /// CASH and CORPORATE are collected on delivery; CARD and PROMPTPAY were
+  /// already paid before the order was ever released to the restaurant.
+  bool get isPrepaid =>
+      paymentMethod == 'CARD' || paymentMethod == 'PROMPTPAY';
 
   /// The ETA the customer should now expect.
   int get effectiveEtaMin => originalEtaMin + prepTimeAdjustmentMin;

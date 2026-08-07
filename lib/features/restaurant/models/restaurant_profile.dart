@@ -11,7 +11,24 @@ class RestaurantProfile {
   final String? cuisineType;
   final double? lat;
   final double? lng;
+  /// PENDING | VERIFIED | REJECTED — **uppercase**, unlike the per-document
+  /// status which is lowercase (SCRUM-53 §3, §8).
   final String? verificationStatus;
+  final String? verifiedAt;
+  final String? userId;
+  final String? nameTh;
+  final String? descriptionTh;
+  final String? cuisineTypeTh;
+  final double? rating;
+  final bool isActive;
+  final String? openingTime;
+  final String? closingTime;
+  final String? timezone;
+
+  /// Only ever returned on the merchant's own profile — stripped from every
+  /// customer-facing read.
+  final String? bankCode;
+  final String? bankAccountNumber;
   final double? minOrderAmount;
   final String? logoUrl;
   final String? coverImageUrl;
@@ -39,6 +56,18 @@ class RestaurantProfile {
     this.lat,
     this.lng,
     this.verificationStatus,
+    this.verifiedAt,
+    this.userId,
+    this.nameTh,
+    this.descriptionTh,
+    this.cuisineTypeTh,
+    this.rating,
+    this.isActive = true,
+    this.openingTime,
+    this.closingTime,
+    this.timezone,
+    this.bankCode,
+    this.bankAccountNumber,
     this.minOrderAmount,
     this.logoUrl,
     this.coverImageUrl,
@@ -78,6 +107,18 @@ class RestaurantProfile {
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),
       verificationStatus: json['verification_status'],
+      verifiedAt: json['verified_at'],
+      userId: json['user_id'],
+      nameTh: json['restaurant_name_th'],
+      descriptionTh: json['description_th'],
+      cuisineTypeTh: json['cuisine_type_th'],
+      rating: (json['rating'] as num?)?.toDouble(),
+      isActive: json['is_active'] ?? true,
+      openingTime: json['opening_time'],
+      closingTime: json['closing_time'],
+      timezone: json['timezone'],
+      bankCode: json['bank_code'],
+      bankAccountNumber: json['bank_account_number'],
       minOrderAmount: (json['min_order_amount'] as num?)?.toDouble(),
       logoUrl: json['logo_url'],
       coverImageUrl: json['cover_image_url'],
@@ -105,6 +146,8 @@ class RestaurantProfile {
       name == 'New Restaurant' || address == 'Pending Address' || !hasLocation;
 
   bool get hasLocation => lat != null && lng != null && !(lat == 0 && lng == 0);
+
+  bool get isVerified => verificationStatus == 'VERIFIED';
 
   RestaurantProfile copyWith({
     String? name,
@@ -134,6 +177,18 @@ class RestaurantProfile {
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       verificationStatus: verificationStatus,
+      verifiedAt: verifiedAt,
+      userId: userId,
+      nameTh: nameTh,
+      descriptionTh: descriptionTh,
+      cuisineTypeTh: cuisineTypeTh,
+      rating: rating,
+      isActive: isActive,
+      openingTime: openingTime,
+      closingTime: closingTime,
+      timezone: timezone,
+      bankCode: bankCode,
+      bankAccountNumber: bankAccountNumber,
       minOrderAmount: minOrderAmount ?? this.minOrderAmount,
       logoUrl: logoUrl,
       coverImageUrl: coverImageUrl,
