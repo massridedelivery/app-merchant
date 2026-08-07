@@ -394,6 +394,79 @@ class MockInterceptor extends Interceptor {
       ));
     }
 
+    // ─── KYC DOCUMENTS ──────────────────────────────────────
+    if (path.contains('/restaurant/documents')) {
+      if (method == 'POST') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'document uploaded successfully'},
+          statusCode: 200,
+        ));
+      }
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: [
+          {
+            'id': 'doc_1',
+            'doc_type': 'business_license',
+            'doc_number': '0105558123456',
+            'image_url': 'restaurant_doc/mock-user/licence.jpg',
+            'status': 'approved',
+            'uploaded_at': '2026-06-10T02:45:11Z',
+            'verified_at': '2026-06-14T09:12:33Z',
+          },
+          {
+            'id': 'doc_2',
+            'doc_type': 'tax_id',
+            'image_url': 'restaurant_doc/mock-user/tax.jpg',
+            'status': 'rejected',
+            'rejection_reason': 'เอกสารเบลอ อ่านไม่ออก',
+            'uploaded_at': '2026-06-11T03:10:00Z',
+          },
+        ],
+        statusCode: 200,
+      ));
+    }
+
+    // ─── MEDIA (3-step upload) ──────────────────────────────
+    if (path.contains('/api/media/upload-url')) {
+      final category = options.queryParameters['category'] ?? 'restaurant';
+      final key =
+          '$category/mock-user/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'upload_url': 'https://storage.mock.local/$key?signature=mock',
+          'file_key': key,
+          'expires_at': DateTime.now()
+              .add(const Duration(minutes: 15))
+              .toIso8601String(),
+          'max_bytes': category == 'restaurant_doc' ? 5242880 : 3145728,
+        },
+        statusCode: 200,
+      ));
+    }
+    if (path.contains('/api/media/confirm')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'file_key': (options.data as Map)['file_key'],
+          'confirmed': true,
+        },
+        statusCode: 200,
+      ));
+    }
+    if (path.contains('/api/media/view')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'view_url':
+              'https://storage.mock.local/${options.queryParameters['key']}?signed=mock',
+        },
+        statusCode: 200,
+      ));
+    }
+
     super.onRequest(options, handler);
   }
 
