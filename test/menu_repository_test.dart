@@ -55,7 +55,7 @@ void main() {
 
       final categories = await repo.fetchCategories();
 
-      expectCall('GET', '/restaurant/menu/categories');
+      expectCall('GET', '/api/food/restaurant/menu/categories');
       expect(categories.single.id, 'cat-123');
       expect(categories.single.name, 'Appetizers');
     });
@@ -68,7 +68,7 @@ void main() {
         isActive: true,
       );
 
-      expectCall('PUT', '/restaurant/menu/categories/cat-123');
+      expectCall('PUT', '/api/food/restaurant/menu/categories/cat-123');
       expect(api.last.data, {
         'name': 'Starters',
         'sort_order': 2,
@@ -79,7 +79,7 @@ void main() {
     test('deleteCategory hits the id path', () async {
       api.nextStatus = 204;
       await repo.deleteCategory('cat-123');
-      expectCall('DELETE', '/restaurant/menu/categories/cat-123');
+      expectCall('DELETE', '/api/food/restaurant/menu/categories/cat-123');
     });
   });
 
@@ -95,7 +95,7 @@ void main() {
         price: 89.0,
       );
 
-      expectCall('POST', '/restaurant/menu/items');
+      expectCall('POST', '/api/food/restaurant/menu/items');
       final body = api.last.data as Map<String, dynamic>;
       expect(body['category_id'], 'cat-123');
       expect(body.containsKey('image_url'), isFalse);
@@ -128,7 +128,7 @@ void main() {
         imageUrl: 'spring-rolls-large.jpg',
       );
 
-      expectCall('PUT', '/restaurant/menu/items/item-456');
+      expectCall('PUT', '/api/food/restaurant/menu/items/item-456');
       expect(api.last.data, {
         'category_id': 'cat-123',
         'name': 'Spring Rolls (Large)',
@@ -142,7 +142,7 @@ void main() {
     test('deleteItem hits the id path', () async {
       api.nextStatus = 204;
       await repo.deleteItem('item-456');
-      expectCall('DELETE', '/restaurant/menu/items/item-456');
+      expectCall('DELETE', '/api/food/restaurant/menu/items/item-456');
     });
   });
 
@@ -164,7 +164,7 @@ void main() {
         maxSelect: 1,
       );
 
-      expectCall('POST', '/restaurant/modifier-groups');
+      expectCall('POST', '/api/food/restaurant/modifier-groups');
       expect(api.last.data,
           {'name': 'Spiciness Level', 'min_select': 0, 'max_select': 1});
       expect(group?.id, 'group-789');
@@ -180,7 +180,7 @@ void main() {
         isActive: true,
       );
 
-      expectCall('PUT', '/restaurant/modifier-groups/group-789');
+      expectCall('PUT', '/api/food/restaurant/modifier-groups/group-789');
       expect(api.last.data, {
         'name': 'Spice Level',
         'min_select': 0,
@@ -192,7 +192,7 @@ void main() {
     test('deleteModifierGroup hits the id path', () async {
       api.nextStatus = 204;
       await repo.deleteModifierGroup('group-789');
-      expectCall('DELETE', '/restaurant/modifier-groups/group-789');
+      expectCall('DELETE', '/api/food/restaurant/modifier-groups/group-789');
     });
 
     test('linkModifierGroupToItem posts under the item', () async {
@@ -202,7 +202,7 @@ void main() {
         sortOrder: 1,
       );
 
-      expectCall('POST', '/restaurant/items/item-456/modifier-groups');
+      expectCall('POST', '/api/food/restaurant/items/item-456/modifier-groups');
       expect(api.last.data, {'modifier_group_id': 'group-789', 'sort_order': 1});
     });
 
@@ -212,7 +212,7 @@ void main() {
         itemId: 'item-456',
         groupId: 'group-789',
       );
-      expectCall('DELETE', '/restaurant/items/item-456/modifier-groups/group-789');
+      expectCall('DELETE', '/api/food/restaurant/items/item-456/modifier-groups/group-789');
     });
   });
 
@@ -232,7 +232,7 @@ void main() {
         price: 0.0,
       );
 
-      expectCall('POST', '/restaurant/modifier-groups/group-789/modifiers');
+      expectCall('POST', '/api/food/restaurant/modifier-groups/group-789/modifiers');
       expect(api.last.data, {'name': 'Extra Spicy', 'price': 0.0});
       expect(modifier?.id, 'mod-111');
     });
@@ -246,7 +246,7 @@ void main() {
         isAvailable: true,
       );
 
-      expectCall('PUT', '/restaurant/modifiers/mod-111');
+      expectCall('PUT', '/api/food/restaurant/modifiers/mod-111');
       expect(api.last.data, {
         'name': 'Very Spicy',
         'price': 5.0,
@@ -269,7 +269,7 @@ void main() {
     test('deleteModifier hits the id path', () async {
       api.nextStatus = 204;
       await repo.deleteModifier('mod-111');
-      expectCall('DELETE', '/restaurant/modifiers/mod-111');
+      expectCall('DELETE', '/api/food/restaurant/modifiers/mod-111');
     });
   });
 }

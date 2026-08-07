@@ -7,6 +7,9 @@
 ///   ├─→ RESTAURANT_REJECTED
 ///   └─→ CANCELLED
 /// ```
+///
+/// Plus the failure exits reachable from most states: FAILED_DISPATCH,
+/// FAILED_DELIVERY and EXTERNALLY_DISPATCHED (SCRUM-53 §9).
 class OrderStatus {
   const OrderStatus._();
 
@@ -19,6 +22,9 @@ class OrderStatus {
   static const String delivered = 'DELIVERED';
   static const String restaurantRejected = 'RESTAURANT_REJECTED';
   static const String cancelled = 'CANCELLED';
+  static const String failedDispatch = 'FAILED_DISPATCH';
+  static const String failedDelivery = 'FAILED_DELIVERY';
+  static const String externallyDispatched = 'EXTERNALLY_DISPATCHED';
 
   /// Still the restaurant's responsibility.
   static const List<String> inKitchen = [
@@ -35,7 +41,33 @@ class OrderStatus {
     delivered,
     restaurantRejected,
     cancelled,
+    failedDispatch,
+    failedDelivery,
+    externallyDispatched,
   ];
+}
+
+/// One chosen modifier on an order line. `selected_modifiers` is unmarshalled
+/// server-side, so it arrives as a real array — unlike `variant_options`, which
+/// comes through as an escaped JSON string (SCRUM-53 §4).
+class OrderItemModifier {
+  final String id;
+  final String name;
+  final double price;
+
+  const OrderItemModifier({
+    required this.id,
+    required this.name,
+    required this.price,
+  });
+
+  factory OrderItemModifier.fromJson(Map<String, dynamic> json) {
+    return OrderItemModifier(
+      id: json['id'] ?? '',
+      name: json['name'] ?? '',
+      price: (json['price'] ?? 0).toDouble(),
+    );
+  }
 }
 
 class OrderItem {
@@ -45,7 +77,8 @@ class OrderItem {
   final int quantity;
   final double unitPrice;
   final double subtotal;
-  final List<String> selectedModifiers;
+  final List<OrderItemModifier> selectedModifiers;
+  final String? notes;
 
   OrderItem({
     required this.id,
@@ -55,14 +88,11 @@ class OrderItem {
     required this.unitPrice,
     required this.subtotal,
     this.selectedModifiers = const [],
+    this.notes,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     final mods = json['selected_modifiers'] ?? json['modifiers'];
-    List<String> modList = [];
-    if (mods is List) {
-      modList = mods.map((m) => m.toString()).toList();
-    }
     return OrderItem(
       id: json['id'] ?? '',
       menuItemId: json['menu_item_id'] ?? '',
@@ -70,9 +100,21 @@ class OrderItem {
       quantity: json['quantity'] ?? 0,
       unitPrice: (json['unit_price'] ?? 0.0).toDouble(),
       subtotal: (json['subtotal'] ?? 0.0).toDouble(),
-      selectedModifiers: modList,
+      selectedModifiers: mods is List
+          ? mods
+              .whereType<Map<String, dynamic>>()
+              .map(OrderItemModifier.fromJson)
+              .toList()
+          : const [],
+      notes: json['notes'],
     );
   }
+
+  /// What the line actually costs: the item plus its modifiers, times quantity
+  /// (SCRUM-53 §4).
+  double get computedSubtotal =>
+      (unitPrice + selectedModifiers.fold<double>(0, (sum, m) => sum + m.price)) *
+      quantity;
 }
 
 class Order {

@@ -120,7 +120,7 @@ void main() {
       );
 
       expect(api.last.method, 'PUT');
-      expect(api.last.path, '/restaurant/orders/order-123/ops');
+      expect(api.last.path, '/api/food/restaurant/orders/order-123/ops');
       expect(api.last.data, {
         'prep_time_adjustment_min': 5,
         'oos_order_item_ids': ['orderitem-1'],

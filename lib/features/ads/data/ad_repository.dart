@@ -12,7 +12,7 @@ class AdRepository {
   /// 404 rather than an empty body.
   Future<AdCampaign?> fetchAd() async {
     try {
-      final response = await _api.dio.get('/restaurant/ads');
+      final response = await _api.dio.get('/api/food/restaurant/ads');
       return AdCampaign.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
@@ -24,7 +24,7 @@ class AdRepository {
     required double dailyBudget,
     required double bidPerClick,
   }) =>
-      _api.dio.post('/restaurant/ads', data: {
+      _api.dio.post('/api/food/restaurant/ads', data: {
         'daily_budget': dailyBudget,
         'bid_per_click': bidPerClick,
       });
@@ -34,7 +34,7 @@ class AdRepository {
     required double bidPerClick,
     required bool isActive,
   }) =>
-      _api.dio.put('/restaurant/ads', data: {
+      _api.dio.put('/api/food/restaurant/ads', data: {
         'daily_budget': dailyBudget,
         'bid_per_click': bidPerClick,
         'is_active': isActive,

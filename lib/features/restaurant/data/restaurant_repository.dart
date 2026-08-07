@@ -8,7 +8,7 @@ class RestaurantRepository {
   final ApiClient _api;
 
   Future<RestaurantProfile> fetchProfile() async {
-    final response = await _api.dio.get('/restaurant/profile');
+    final response = await _api.dio.get('/api/food/restaurant/profile');
     return RestaurantProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -22,7 +22,7 @@ class RestaurantRepository {
     String? address,
     double? minOrderAmount,
   }) =>
-      _api.dio.put('/restaurant/profile', data: {
+      _api.dio.put('/api/food/restaurant/profile', data: {
         'restaurant_name': name,
         'description': ?description,
         'cuisine_type': ?cuisineType,
@@ -31,10 +31,10 @@ class RestaurantRepository {
       });
 
   Future<void> setOpen(bool isOpen) =>
-      _api.dio.post('/restaurant/open', data: {'is_open': isOpen});
+      _api.dio.post('/api/food/restaurant/open', data: {'is_open': isOpen});
 
   Future<void> setBusy(bool isBusy) =>
-      _api.dio.post('/restaurant/busy', data: {'is_busy': isBusy});
+      _api.dio.post('/api/food/restaurant/busy', data: {'is_busy': isBusy});
 }
 
 final restaurantRepositoryProvider = Provider<RestaurantRepository>(

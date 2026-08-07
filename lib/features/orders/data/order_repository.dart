@@ -8,7 +8,9 @@ class OrderRepository {
   final ApiClient _api;
 
   /// Everything still on the restaurant's plate, including orders already
-  /// handed to a driver — `GET /restaurant/orders/pending?status=`.
+  /// handed to a driver (SCRUM-53 §4). No pagination exists server-side and
+  /// prepaid orders awaiting payment are excluded, so everything returned is
+  /// either paid or cash-on-delivery.
   Future<List<Order>> fetchPending() async {
     final statuses = [
       ...OrderStatus.inKitchen,
@@ -16,26 +18,27 @@ class OrderRepository {
       ...OrderStatus.withDriver,
     ].join(',');
     final response =
-        await _api.dio.get('/restaurant/orders/pending?status=$statuses');
+        await _api.dio.get('/api/food/restaurant/orders/pending?status=$statuses');
     return _parseList(response.data);
   }
 
+  /// No history endpoint appears in SCRUM-53 — MockInterceptor only.
   Future<List<Order>> fetchHistory() async {
-    final response = await _api.dio.get('/restaurant/orders/history');
+    final response = await _api.dio.get('/api/food/restaurant/orders/history');
     return _parseList(response.data);
   }
 
   Future<void> accept(String id) =>
-      _api.dio.post('/restaurant/orders/$id/accept');
+      _api.dio.post('/api/food/restaurant/orders/$id/accept');
 
   Future<void> reject(String id) =>
-      _api.dio.post('/restaurant/orders/$id/reject');
+      _api.dio.post('/api/food/restaurant/orders/$id/reject');
 
   Future<void> markPreparing(String id) =>
-      _api.dio.post('/restaurant/orders/$id/preparing');
+      _api.dio.post('/api/food/restaurant/orders/$id/preparing');
 
   Future<void> markReady(String id) =>
-      _api.dio.post('/restaurant/orders/$id/ready');
+      _api.dio.post('/api/food/restaurant/orders/$id/ready');
 
   /// `PUT /restaurant/orders/{id}/ops` (4.6). Adjusts the promised prep time
   /// and flags order items the kitchen cannot make.
@@ -44,7 +47,7 @@ class OrderRepository {
     required int prepTimeAdjustmentMin,
     required List<String> oosOrderItemIds,
   }) =>
-      _api.dio.put('/restaurant/orders/$id/ops', data: {
+      _api.dio.put('/api/food/restaurant/orders/$id/ops', data: {
         'prep_time_adjustment_min': prepTimeAdjustmentMin,
         'oos_order_item_ids': oosOrderItemIds,
       });

@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/network/api_client.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 
-/// Covers section 3 of RESTAURANT_API_GUIDE.md.
+/// Covers the menu section of SCRUM-53 (§5-§6).
+///
+/// RESTAURANT_API_GUIDE.md is superseded and wrong — do not use it.
 ///
 /// The update and delete endpoints answer with `{"message": ...}` or 204 — no
 /// entity comes back — so callers apply the change to their own state rather
@@ -14,11 +16,17 @@ class MenuRepository {
 
   // ─── Menu ────────────────────────────────────────────────────────────────
 
-  /// Reads the menu through the customer-facing endpoint, which is the only one
-  /// that nests items inside their categories (3.16).
+  /// `GET /api/food/restaurant/{id}/menu` (SCRUM-53 §5) — the only read that
+  /// nests items inside their categories. [restaurantId] is the merchant's own
+  /// `user_id` from the JWT.
+  ///
+  /// With `lang=th` the server overwrites `name`/`description` with the Thai
+  /// values in place, so nothing is swapped client-side.
   Future<List<MenuCategory>> fetchMenu(String restaurantId) async {
-    final response =
-        await _api.dio.get('/customer/restaurants/$restaurantId/menu');
+    final response = await _api.dio
+        .get('/api/food/restaurant/$restaurantId/menu', queryParameters: {
+      'lang': 'th',
+    });
     return (response.data['categories'] as List)
         .map((json) => MenuCategory.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -28,7 +36,7 @@ class MenuRepository {
 
   /// The merchant-side category list. Flat — no items attached.
   Future<List<MenuCategory>> fetchCategories() async {
-    final response = await _api.dio.get('/restaurant/menu/categories');
+    final response = await _api.dio.get('/api/food/restaurant/menu/categories');
     return (response.data as List)
         .map((j) => MenuCategory.fromJson(j as Map<String, dynamic>))
         .toList();
@@ -40,7 +48,7 @@ class MenuRepository {
     required int sortOrder,
   }) async {
     final response = await _api.dio.post(
-      '/restaurant/menu/categories',
+      '/api/food/restaurant/menu/categories',
       data: {'name': name, 'sort_order': sortOrder},
     );
     if (response.statusCode != 201) return null;
@@ -53,14 +61,14 @@ class MenuRepository {
     required int sortOrder,
     required bool isActive,
   }) =>
-      _api.dio.put('/restaurant/menu/categories/$id', data: {
+      _api.dio.put('/api/food/restaurant/menu/categories/$id', data: {
         'name': name,
         'sort_order': sortOrder,
         'is_active': isActive,
       });
 
   Future<void> deleteCategory(String id) =>
-      _api.dio.delete('/restaurant/menu/categories/$id');
+      _api.dio.delete('/api/food/restaurant/menu/categories/$id');
 
   // ─── Items (3.5 – 3.7) ───────────────────────────────────────────────────
 
@@ -73,7 +81,7 @@ class MenuRepository {
     String? imageUrl,
     String? options,
   }) async {
-    final response = await _api.dio.post('/restaurant/menu/items', data: {
+    final response = await _api.dio.post('/api/food/restaurant/menu/items', data: {
       'category_id': categoryId,
       'name': name,
       'description': description,
@@ -95,7 +103,7 @@ class MenuRepository {
     String? imageUrl,
     String? options,
   }) =>
-      _api.dio.put('/restaurant/menu/items/$id', data: {
+      _api.dio.put('/api/food/restaurant/menu/items/$id', data: {
         'category_id': categoryId,
         'name': name,
         'description': description,
@@ -106,14 +114,15 @@ class MenuRepository {
       });
 
   Future<void> deleteItem(String id) =>
-      _api.dio.delete('/restaurant/menu/items/$id');
+      _api.dio.delete('/api/food/restaurant/menu/items/$id');
 
   // ─── Modifier groups (3.8 – 3.12) ────────────────────────────────────────
 
-  /// Note: the guide defines no list endpoint for modifier groups. This one is
-  /// served by MockInterceptor only.
+  /// Note: SCRUM-53 §6 defines no list endpoint for modifier groups — they are
+  /// read nested under menu items. This call is served by MockInterceptor only
+  /// and will 404 against a real backend.
   Future<List<ModifierGroup>> fetchModifierGroups() async {
-    final response = await _api.dio.get('/restaurant/modifier-groups');
+    final response = await _api.dio.get('/api/food/restaurant/modifier-groups');
     return (response.data as List)
         .map((j) => ModifierGroup.fromJson(j as Map<String, dynamic>))
         .toList();
@@ -125,7 +134,7 @@ class MenuRepository {
     required int minSelect,
     required int maxSelect,
   }) async {
-    final response = await _api.dio.post('/restaurant/modifier-groups', data: {
+    final response = await _api.dio.post('/api/food/restaurant/modifier-groups', data: {
       'name': name,
       'min_select': minSelect,
       'max_select': maxSelect,
@@ -141,7 +150,7 @@ class MenuRepository {
     required int maxSelect,
     required bool isActive,
   }) =>
-      _api.dio.put('/restaurant/modifier-groups/$id', data: {
+      _api.dio.put('/api/food/restaurant/modifier-groups/$id', data: {
         'name': name,
         'min_select': minSelect,
         'max_select': maxSelect,
@@ -149,14 +158,14 @@ class MenuRepository {
       });
 
   Future<void> deleteModifierGroup(String id) =>
-      _api.dio.delete('/restaurant/modifier-groups/$id');
+      _api.dio.delete('/api/food/restaurant/modifier-groups/$id');
 
   Future<void> linkModifierGroupToItem({
     required String itemId,
     required String groupId,
     required int sortOrder,
   }) =>
-      _api.dio.post('/restaurant/items/$itemId/modifier-groups', data: {
+      _api.dio.post('/api/food/restaurant/items/$itemId/modifier-groups', data: {
         'modifier_group_id': groupId,
         'sort_order': sortOrder,
       });
@@ -165,7 +174,7 @@ class MenuRepository {
     required String itemId,
     required String groupId,
   }) =>
-      _api.dio.delete('/restaurant/items/$itemId/modifier-groups/$groupId');
+      _api.dio.delete('/api/food/restaurant/items/$itemId/modifier-groups/$groupId');
 
   // ─── Modifiers (3.13 – 3.15) ─────────────────────────────────────────────
 
@@ -176,7 +185,7 @@ class MenuRepository {
     required double price,
   }) async {
     final response = await _api.dio.post(
-      '/restaurant/modifier-groups/$groupId/modifiers',
+      '/api/food/restaurant/modifier-groups/$groupId/modifiers',
       data: {'name': name, 'price': price},
     );
     if (response.statusCode != 201) return null;
@@ -190,7 +199,7 @@ class MenuRepository {
     required bool isAvailable,
     int? sortOrder,
   }) =>
-      _api.dio.put('/restaurant/modifiers/$id', data: {
+      _api.dio.put('/api/food/restaurant/modifiers/$id', data: {
         'name': name,
         'price': price,
         'is_available': isAvailable,
@@ -198,7 +207,7 @@ class MenuRepository {
       });
 
   Future<void> deleteModifier(String id) =>
-      _api.dio.delete('/restaurant/modifiers/$id');
+      _api.dio.delete('/api/food/restaurant/modifiers/$id');
 }
 
 final menuRepositoryProvider = Provider<MenuRepository>(

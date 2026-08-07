@@ -4,7 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'mock_interceptor.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://localhost:8080/api/food';
+  /// Bare host. The backend serves three different prefixes off it
+  /// (SCRUM-53 §1), so repositories carry the full path:
+  ///
+  /// * REST — `{host}/api/...`, e.g. `/api/food/restaurant/profile`
+  /// * Auth — `{host}/auth/...`, with no `/api` prefix
+  /// * WS   — `{host}/ws`
+  // TODO(SCRUM-53): dev/staging/prod hosts are the ticket's one open item.
+  static const String baseUrl = 'http://localhost:8080';
   static const bool useMock = true; // Toggle this to false to use real API
 
   static const String _tokenKey = 'auth_token';

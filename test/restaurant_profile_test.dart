@@ -96,7 +96,7 @@ void main() {
       await RestaurantRepository(api).updateProfile(name: 'Thai Delight');
 
       expect(api.last.method, 'PUT');
-      expect(api.last.path, '/restaurant/profile');
+      expect(api.last.path, '/api/food/restaurant/profile');
       expect(api.last.data, {'restaurant_name': 'Thai Delight'});
     });
 

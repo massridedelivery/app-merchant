@@ -6,7 +6,8 @@ class AuthRepository {
 
   final ApiClient _api;
 
-  /// Returns the session token, or null when the server did not issue one.
+  /// `POST <host>/auth/login` — auth sits outside the `/api` prefix
+  /// (SCRUM-53 §1). Returns the session token, or null when none was issued.
   Future<String?> login({
     required String username,
     required String password,

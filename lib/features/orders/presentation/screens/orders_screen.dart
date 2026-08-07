@@ -516,7 +516,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                                 if (item.selectedModifiers.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    item.selectedModifiers.join(', '),
+                                    item.selectedModifiers.map((m) => m.name).join(', '),
                                     style: AppTypography.caption5.copyWith(
                                       color: const Color(0xFF64748B),
                                     ),

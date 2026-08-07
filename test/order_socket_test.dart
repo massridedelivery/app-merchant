@@ -22,34 +22,39 @@ class _OfflineApiClient extends ApiClient {
   Dio get dio => _offline;
 }
 
-/// The `order_created` frame from section 6.2 of the API guide.
-Map<String, dynamic> orderCreated(String id) => {
-  'type': 'order_created',
-  'order_id': id,
-  'status': 'PLACED',
+/// The `new_food_order` frame from SCRUM-53 §11. The nested order is the
+/// narrower `FoodOrderWSResponse` — no `food_total`, `delivery_fee`,
+/// `payment_status`, `tier` or `driver_info`.
+Map<String, dynamic> newFoodOrder(String id) => {
+  'type': 'new_food_order',
   'order': {
     'id': id,
-    'customer_id': 'cust-456',
-    'restaurant_id': 'rest-123',
-    'driver_id': null,
+    'customer_id': 'c0ffee00-1111-2222-3333-444455556666',
+    'customer_name': 'Nid Wattana',
+    'customer_phone': '+66898887777',
+    'restaurant_id': '9f1c0f6e-3b3a-4a1e-9c2d-6a5e4b3c2d10',
     'status': 'PLACED',
-    'delivery_address': '456 Customer St, Bangkok',
-    'food_total': 250.0,
-    'delivery_fee': 25.0,
-    'total_amount': 275.0,
-    'payment_method': 'credit_card',
-    'placed_at': '2024-01-01T12:00:00Z',
-    'original_eta_min': 25,
+    'total_amount': 295.0,
+    'payment_method': 'CASH',
+    'delivery_address': '55/3 Soi Ruamrudee, Lumphini, Bangkok',
+    'placed_at': '2026-08-07T11:02:19Z',
     'items': [
       {
         'id': 'orderitem-1',
         'order_id': id,
-        'menu_item_id': 'item-456',
-        'name': 'Spring Rolls',
+        'menu_item_id': 'aaaaaaa1-0000-0000-0000-000000000001',
+        'name': 'Som Tam Thai',
         'quantity': 2,
-        'unit_price': 89.0,
-        'selected_modifiers': [],
-        'subtotal': 178.0,
+        'unit_price': 60.0,
+        'selected_modifiers': [
+          {
+            'id': 'm0000001-0000-0000-0000-000000000001',
+            'name': 'Extra Peanuts',
+            'price': 10.0,
+          },
+        ],
+        'subtotal': 140.0,
+        'notes': 'no fish sauce',
       },
     ],
   },
@@ -74,32 +79,43 @@ void main() {
 
   List<String> idsIn(List<Order> bucket) => bucket.map((o) => o.id).toList();
 
-  group('order_created', () {
+  group('new_food_order', () {
     test('reads the order from `order`, not `data`', () {
-      notifier.handleSocketEvent(orderCreated('order-123'));
+      notifier.handleSocketEvent(newFoodOrder('order-123'));
 
       final state = container.read(orderProvider);
       expect(idsIn(state.preparing), ['order-123']);
-      expect(state.preparing.single.items.single.name, 'Spring Rolls');
-      expect(state.preparing.single.totalAmount, 275.0);
+      expect(state.preparing.single.items.single.name, 'Som Tam Thai');
+      expect(state.preparing.single.totalAmount, 295.0);
       expect(state.hasNewOrder, isTrue);
       expect(state.newestIncomingOrder?.id, 'order-123');
+    });
+
+    test('selected_modifiers arrive as objects, not strings', () {
+      notifier.handleSocketEvent(newFoodOrder('order-123'));
+
+      final item = container.read(orderProvider).preparing.single.items.single;
+      expect(item.selectedModifiers.single.name, 'Extra Peanuts');
+      expect(item.selectedModifiers.single.price, 10.0);
+      expect(item.notes, 'no fish sauce');
+      // (60 + 10) * 2
+      expect(item.computedSubtotal, 140.0);
     });
   });
 
   group('status frames', () {
-    setUp(() => notifier.handleSocketEvent(orderCreated('order-123')));
+    setUp(() => notifier.handleSocketEvent(newFoodOrder('order-123')));
 
-    test('order_accepted updates status but stays in the kitchen bucket', () {
+    test('order_preparing keeps the order in the kitchen bucket', () {
       notifier.handleSocketEvent({
-        'type': 'order_accepted',
+        'type': 'order_preparing',
         'order_id': 'order-123',
-        'status': 'RESTAURANT_ACCEPTED',
+        'status': 'PREPARING',
       });
 
       final state = container.read(orderProvider);
       expect(idsIn(state.preparing), ['order-123']);
-      expect(state.preparing.single.status, OrderStatus.restaurantAccepted);
+      expect(state.preparing.single.status, OrderStatus.preparing);
     });
 
     test('order_ready moves the order to the ready bucket', () {
@@ -136,11 +152,6 @@ void main() {
         },
         {'type': 'driver_assigned', 'order_id': 'order-123'},
         {
-          'type': 'order_picked_up',
-          'order_id': 'order-123',
-          'status': 'DRIVER_PICKED_UP',
-        },
-        {
           'type': 'order_delivered',
           'order_id': 'order-123',
           'status': 'DELIVERED',
@@ -162,29 +173,53 @@ void main() {
         'type': 'order_cancelled',
         'order_id': 'order-123',
         'status': 'CANCELLED',
-        'reason': 'Customer cancelled before restaurant accepted',
       });
 
       expect(idsIn(container.read(orderProvider).history), ['order-123']);
     });
-  });
 
-  group('frames that must not corrupt state', () {
-    setUp(() => notifier.handleSocketEvent(orderCreated('order-123')));
-
-    test('the retired NEW_ORDER / ORDER_STATUS_UPDATED names are ignored', () {
+    test('the dispatch failure states are terminal too', () {
       notifier.handleSocketEvent({
-        'type': 'NEW_ORDER',
-        'data': {'id': 'order-999', 'status': 'PLACED'},
-      });
-      notifier.handleSocketEvent({
-        'type': 'ORDER_STATUS_UPDATED',
-        'data': {'orderId': 'order-123', 'status': 'READY_FOR_PICKUP'},
+        'type': 'order_cancelled',
+        'order_id': 'order-123',
+        'status': 'FAILED_DISPATCH',
       });
 
       final state = container.read(orderProvider);
+      expect(state.preparing, isEmpty);
+      expect(idsIn(state.history), ['order-123']);
+    });
+  });
+
+  group('frames that must not corrupt state', () {
+    setUp(() => notifier.handleSocketEvent(newFoodOrder('order-123')));
+
+    test('events the restaurant socket never receives are ignored', () {
+      // order_accepted / order_rejected / order_picked_up go to the customer
+      // socket only (SCRUM-53 §11) — and order_created never existed.
+      for (final frame in <Map<String, dynamic>>[
+        {
+          'type': 'order_created',
+          'order': {'id': 'order-999', 'status': 'PLACED'},
+        },
+        {
+          'type': 'order_accepted',
+          'order_id': 'order-123',
+          'status': 'RESTAURANT_ACCEPTED',
+        },
+        {
+          'type': 'order_picked_up',
+          'order_id': 'order-123',
+          'status': 'DRIVER_PICKED_UP',
+        },
+      ]) {
+        notifier.handleSocketEvent(frame);
+      }
+
+      final state = container.read(orderProvider);
       expect(idsIn(state.preparing), ['order-123']);
-      expect(state.ready, isEmpty);
+      expect(state.preparing.single.status, OrderStatus.placed);
+      expect(state.delivering, isEmpty);
     });
 
     test('an event for an unknown order is dropped', () {
@@ -203,8 +238,8 @@ void main() {
       for (final frame in <Map<String, dynamic>>[
         {},
         {'type': 42},
-        {'type': 'order_created'}, // no `order`
-        {'type': 'order_created', 'order': 'not-a-map'},
+        {'type': 'new_food_order'}, // no `order`
+        {'type': 'new_food_order', 'order': 'not-a-map'},
         {'type': 'order_ready'}, // no `order_id`
         {'type': 'something_new', 'order_id': 'order-123'},
       ]) {
@@ -220,7 +255,7 @@ void main() {
   });
 
   group('SocketService mock frames', () {
-    test('simulateNewOrder emits the documented order_created shape', () async {
+    test('simulateNewOrder emits the documented new_food_order shape', () async {
       final socket = SocketService();
       addTearDown(socket.dispose);
 
@@ -228,10 +263,13 @@ void main() {
       socket.simulateNewOrder();
 
       final event = await frame;
-      expect(event['type'], 'order_created');
-      expect(event['order_id'], isA<String>());
+      expect(event['type'], 'new_food_order');
       expect(event['order'], isA<Map<String, dynamic>>());
       expect(event.containsKey('data'), isFalse);
+      // FoodOrderWSResponse carries none of these.
+      final order = event['order'] as Map<String, dynamic>;
+      expect(order.containsKey('food_total'), isFalse);
+      expect(order.containsKey('delivery_fee'), isFalse);
     });
 
     test('simulateStatusEvent omits absent optional fields', () async {

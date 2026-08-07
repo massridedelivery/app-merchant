@@ -5,17 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Server → restaurant event names, per section 6 of the API guide.
+/// Events the **restaurant** socket receives (SCRUM-53 §11, read from
+/// `internal/ws` on main@2ac3bec).
+///
+/// `order_accepted`, `order_rejected`, `order_picked_up` and admin-initiated
+/// `order_cancelled` go to the customer socket only — they are deliberately
+/// absent here. The gap means READY_FOR_PICKUP -> DELIVERED cannot be followed
+/// from the socket alone; reconcile with `GET /orders/pending`.
 class SocketEventType {
   const SocketEventType._();
 
-  static const String orderCreated = 'order_created';
-  static const String orderAccepted = 'order_accepted';
-  static const String orderRejected = 'order_rejected';
+  /// A new order. Note the name: not `order_created` (`service.go:424`).
+  static const String newFoodOrder = 'new_food_order';
   static const String orderPreparing = 'order_preparing';
   static const String orderReady = 'order_ready';
   static const String driverAssigned = 'driver_assigned';
-  static const String orderPickedUp = 'order_picked_up';
   static const String orderDelivered = 'order_delivered';
   static const String orderCancelled = 'order_cancelled';
 }
@@ -77,21 +81,20 @@ class SocketService {
     }
   }
 
-  /// Emits an `order_created` frame shaped like the one in the API guide —
-  /// the order sits under `order`, not `data`.
+  /// Emits a `new_food_order` frame. The `order` payload is the narrower
+  /// `FoodOrderWSResponse`: no `food_total`, `delivery_fee`, `payment_status`,
+  /// `tier`, `driver_info` or `polyline` (SCRUM-53 §11).
   void simulateNewOrder() {
     final mockOrderId = 'order_mock_${DateTime.now().millisecondsSinceEpoch}';
     _controller.add({
-      'type': SocketEventType.orderCreated,
-      'order_id': mockOrderId,
-      'status': 'PLACED',
+      'type': SocketEventType.newFoodOrder,
       'order': {
         'id': mockOrderId,
         'customer_id': 'cust_mock',
+        'customer_name': 'คุณนิด',
+        'customer_phone': '+66898887777',
         'status': 'PLACED',
         'total_amount': 320.0,
-        'food_total': 300.0,
-        'delivery_fee': 20.0,
         'delivery_address': '888 ถนนลาดพร้าว กรุงเทพฯ',
         'payment_method': 'grab_pay',
         'original_eta_min': 30,
@@ -104,7 +107,9 @@ class SocketService {
             'quantity': 2,
             'unit_price': 150.0,
             'subtotal': 300.0,
-            'selected_modifiers': ['เผ็ดปกติ'],
+            'selected_modifiers': [
+              {'id': 'mod_mock_1', 'name': 'เผ็ดปกติ', 'price': 0.0},
+            ],
           },
         ],
       }

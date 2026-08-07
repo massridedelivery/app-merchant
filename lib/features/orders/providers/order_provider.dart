@@ -62,15 +62,12 @@ class OrderNotifier extends StateNotifier<OrderState> {
   StreamSubscription<Map<String, dynamic>>? _socketSub;
 
   /// The status each flat event implies. `driver_assigned` is the reason this
-  /// map exists at all — the guide defines it without a `status` field, so the
-  /// event name is the only signal.
+  /// map exists at all — it carries `order_id` and `driver_id` only, no status,
+  /// so the event name is the only signal.
   static const Map<String, String> _statusForEvent = {
-    SocketEventType.orderAccepted: OrderStatus.restaurantAccepted,
-    SocketEventType.orderRejected: OrderStatus.restaurantRejected,
     SocketEventType.orderPreparing: OrderStatus.preparing,
     SocketEventType.orderReady: OrderStatus.readyForPickup,
     SocketEventType.driverAssigned: OrderStatus.driverAssigned,
-    SocketEventType.orderPickedUp: OrderStatus.driverPickedUp,
     SocketEventType.orderDelivered: OrderStatus.delivered,
     SocketEventType.orderCancelled: OrderStatus.cancelled,
   };
@@ -85,14 +82,18 @@ class OrderNotifier extends StateNotifier<OrderState> {
     _socketSub = _socket.stream.listen(handleSocketEvent);
   }
 
-  /// Handles one server frame. Shapes are defined in section 6.2 of the API
-  /// guide: `order_created` nests the whole order under `order`, every other
-  /// event is flat and identifies the order by `order_id`.
+  /// Handles one server frame (SCRUM-53 §11). `new_food_order` nests the order
+  /// under `order`; every other event is flat and identifies it by `order_id`.
+  ///
+  /// The nested order is a `FoodOrderWSResponse`, which omits `food_total`,
+  /// `delivery_fee` and friends — [Order.fromJson] defaults them. Nothing in
+  /// the order list renders those, so no backfill fetch is issued; add one here
+  /// if a screen starts needing them.
   void handleSocketEvent(Map<String, dynamic> event) {
     final type = event['type'];
     if (type is! String) return;
 
-    if (type == SocketEventType.orderCreated) {
+    if (type == SocketEventType.newFoodOrder) {
       final payload = event['order'];
       if (payload is! Map<String, dynamic>) return;
       final order = Order.fromJson(payload);
