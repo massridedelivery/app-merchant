@@ -50,10 +50,16 @@ class _FakeRestaurantRepository extends RestaurantRepository {
   @override
   Future<void> updateProfile({
     required String name,
+    String? nameTh,
     String? description,
     String? cuisineType,
     String? address,
+    double? lat,
+    double? lng,
     double? minOrderAmount,
+    String? openingTime,
+    String? closingTime,
+    String? timezone,
   }) async {
     lastUpdate = {
       'name': name,

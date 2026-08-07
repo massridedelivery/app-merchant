@@ -13,22 +13,37 @@ class RestaurantRepository {
     return RestaurantProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
-  /// `PUT /restaurant/profile` (1.2). The guide's body has no phone or manager
-  /// fields, so those stay read-only in the app even though the app's model
-  /// carries them.
+  /// `PUT /restaurant/profile` (SCRUM-53 §3). Send only what changed; the
+  /// response echoes the request body rather than a full profile.
+  ///
+  /// The documented body has no phone or manager fields, so those stay
+  /// read-only in the app even though the model carries them.
   Future<void> updateProfile({
     required String name,
+    String? nameTh,
     String? description,
     String? cuisineType,
     String? address,
+    double? lat,
+    double? lng,
     double? minOrderAmount,
+    String? openingTime,
+    String? closingTime,
+    String? timezone,
   }) =>
       _api.dio.put('/api/food/restaurant/profile', data: {
         'restaurant_name': name,
+        'restaurant_name_th': ?nameTh,
         'description': ?description,
         'cuisine_type': ?cuisineType,
         'address': ?address,
+        'lat': ?lat,
+        'lng': ?lng,
         'min_order_amount': ?minOrderAmount,
+        // HH:MM exactly, 24h, or the call 400s.
+        'opening_time': ?openingTime,
+        'closing_time': ?closingTime,
+        'timezone': ?timezone,
       });
 
   Future<void> setOpen(bool isOpen) =>

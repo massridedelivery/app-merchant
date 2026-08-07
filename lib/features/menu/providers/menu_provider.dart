@@ -183,17 +183,21 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
 
 class ModifierGroupNotifier
     extends StateNotifier<AsyncValue<List<ModifierGroup>>> {
-  ModifierGroupNotifier(this._repository) : super(const AsyncValue.loading()) {
-    fetch();
+  ModifierGroupNotifier(this._repository, this._restaurantId)
+      : super(const AsyncValue.loading()) {
+    if (_restaurantId != null) fetch();
   }
 
   final MenuRepository _repository;
+  final String? _restaurantId;
 
   List<ModifierGroup> get _groups => state.value ?? const [];
 
   Future<void> fetch() async {
+    final restaurantId = _restaurantId;
+    if (restaurantId == null) return;
     try {
-      final groups = await _repository.fetchModifierGroups();
+      final groups = await _repository.fetchModifierGroups(restaurantId);
       if (!mounted) return;
       state = AsyncValue.data(groups);
     } catch (e, st) {
@@ -385,6 +389,10 @@ final menuProvider =
   ),
 );
 
-final modifierGroupProvider =
-    StateNotifierProvider<ModifierGroupNotifier, AsyncValue<List<ModifierGroup>>>(
-        (ref) => ModifierGroupNotifier(ref.watch(menuRepositoryProvider)));
+final modifierGroupProvider = StateNotifierProvider<ModifierGroupNotifier,
+    AsyncValue<List<ModifierGroup>>>(
+  (ref) => ModifierGroupNotifier(
+    ref.watch(menuRepositoryProvider),
+    ref.watch(restaurantIdProvider),
+  ),
+);

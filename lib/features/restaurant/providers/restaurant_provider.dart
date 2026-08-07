@@ -31,6 +31,8 @@ class RestaurantProfileNotifier
     String? description,
     String? cuisineType,
     String? address,
+    double? lat,
+    double? lng,
     double? minOrderAmount,
   }) async {
     try {
@@ -39,6 +41,8 @@ class RestaurantProfileNotifier
         description: description,
         cuisineType: cuisineType,
         address: address,
+        lat: lat,
+        lng: lng,
         minOrderAmount: minOrderAmount,
       );
     } catch (e) {
@@ -50,6 +54,8 @@ class RestaurantProfileNotifier
       description: description,
       cuisineType: cuisineType,
       address: address,
+      lat: lat,
+      lng: lng,
       minOrderAmount: minOrderAmount,
     ));
   }

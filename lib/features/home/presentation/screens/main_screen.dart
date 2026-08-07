@@ -13,6 +13,9 @@ import 'package:merchant_app/features/home/providers/navigation_provider.dart';
 import 'package:merchant_app/features/menu/presentation/screens/menu_screen.dart';
 import 'package:merchant_app/features/orders/presentation/screens/orders_screen.dart';
 import 'package:merchant_app/features/profile/presentation/screens/profile_screen.dart';
+import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/store_onboarding_screen.dart';
+import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -50,6 +53,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
+    final profileAsync = ref.watch(restaurantProfileProvider);
+
+    // A restaurant still on the row registration created has no real
+    // coordinates, which means customer search cannot see it at all. Nothing
+    // else in the app is worth doing until that is fixed (SCRUM-53 §2).
+    final profile = profileAsync.valueOrNull;
+    if (profile != null && profile.isPlaceholder) {
+      return StoreOnboardingScreen(profile: profile);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.semanticGrayNeutralBgWhite,
@@ -57,17 +69,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         children: [
           // Content
           Positioned.fill(
-            child: IndexedStack(
-              index: currentIndex,
-              children: _pages
-                  .map(
-                    (page) => Padding(
-                      padding: const EdgeInsets.only(bottom: 90),
-                      // Space for floating nav bar
-                      child: page,
-                    ),
-                  )
-                  .toList(),
+            child: Column(
+              children: [
+                if (profile != null && !profile.isVerified)
+                  _buildVerificationBanner(profile),
+                Expanded(
+                  child: IndexedStack(
+                    index: currentIndex,
+                    children: _pages
+                        .map(
+                          (page) => Padding(
+                            padding: const EdgeInsets.only(bottom: 90),
+                            // Space for floating nav bar
+                            child: page,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -77,6 +97,44 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             right: 20,
             bottom: 30,
             child: _buildFloatingPill(currentIndex),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// KYC approval is admin-side and asynchronous, so this informs rather than
+  /// blocks — unlike the coordinates gate, an unverified restaurant can still
+  /// use the app while paperwork is reviewed.
+  Widget _buildVerificationBanner(RestaurantProfile profile) {
+    final rejected = profile.verificationStatus == 'REJECTED';
+    return Container(
+      width: double.infinity,
+      color: rejected
+          ? AppColors.semanticErrorFgHigh.withValues(alpha: 0.1)
+          : const Color(0xFFFEF9C3),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          AppIcon(
+            AppIcons.circleInformationLine,
+            size: 16,
+            color: rejected
+                ? AppColors.semanticErrorFgHigh
+                : const Color(0xFFA16207),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              rejected
+                  ? 'เอกสารยืนยันร้านไม่ผ่าน กรุณาส่งใหม่'
+                  : 'อยู่ระหว่างตรวจสอบเอกสารยืนยันร้าน',
+              style: AppTypography.caption5.copyWith(
+                color: rejected
+                    ? AppColors.semanticErrorFgHigh
+                    : const Color(0xFFA16207),
+              ),
+            ),
           ),
         ],
       ),

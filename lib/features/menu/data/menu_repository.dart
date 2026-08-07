@@ -118,14 +118,30 @@ class MenuRepository {
 
   // ─── Modifier groups (3.8 – 3.12) ────────────────────────────────────────
 
-  /// Note: SCRUM-53 §6 defines no list endpoint for modifier groups — they are
-  /// read nested under menu items. This call is served by MockInterceptor only
-  /// and will 404 against a real backend.
-  Future<List<ModifierGroup>> fetchModifierGroups() async {
-    final response = await _api.dio.get('/api/food/restaurant/modifier-groups');
-    return (response.data as List)
-        .map((j) => ModifierGroup.fromJson(j as Map<String, dynamic>))
-        .toList();
+  /// There is no list endpoint for modifier groups (SCRUM-53 §6) — they only
+  /// come back nested under menu items, so the menu is the source and the
+  /// groups are flattened out of it.
+  ///
+  /// A group attached to several items appears several times in the payload;
+  /// the first copy wins and `itemCount` is how many items reference it.
+  Future<List<ModifierGroup>> fetchModifierGroups(String restaurantId) async {
+    final categories = await fetchMenu(restaurantId);
+
+    final byId = <String, ModifierGroup>{};
+    final uses = <String, int>{};
+    for (final category in categories) {
+      for (final item in category.items) {
+        for (final group in item.modifierGroups) {
+          byId.putIfAbsent(group.id, () => group);
+          uses[group.id] = (uses[group.id] ?? 0) + 1;
+        }
+      }
+    }
+
+    return [
+      for (final entry in byId.entries)
+        entry.value.copyWith(itemCount: uses[entry.key]),
+    ];
   }
 
   /// Returns the created group, or null when the server did not report 201.

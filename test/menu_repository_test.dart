@@ -216,6 +216,68 @@ void main() {
     });
   });
 
+  group('modifier groups are flattened out of the menu', () {
+    // §6 has no list endpoint — nested under items is the only source.
+    setUp(() {
+      api.nextBody = {
+        'categories': [
+          {
+            'id': 'cat-1',
+            'name': 'Salads',
+            'items': [
+              {
+                'id': 'item-1',
+                'name': 'Som Tam',
+                'price': 60.0,
+                'modifier_groups': [
+                  {'id': 'grp-1', 'name': 'Add-ons', 'max_select': 3},
+                  {'id': 'grp-2', 'name': 'Spice', 'max_select': 1},
+                ],
+              },
+              {
+                'id': 'item-2',
+                'name': 'Larb',
+                'price': 80.0,
+                // grp-1 again: the same group attached to a second item.
+                'modifier_groups': [
+                  {'id': 'grp-1', 'name': 'Add-ons', 'max_select': 3},
+                ],
+              },
+            ],
+          },
+        ],
+      };
+    });
+
+    test('reads the menu rather than a list endpoint', () async {
+      await repo.fetchModifierGroups('rest-1');
+      expectCall('GET', '/api/food/restaurant/rest-1/menu');
+    });
+
+    test('a group used twice appears once, with a use count', () async {
+      final groups = await repo.fetchModifierGroups('rest-1');
+
+      expect(groups.map((g) => g.id).toList()..sort(), ['grp-1', 'grp-2']);
+      expect(groups.firstWhere((g) => g.id == 'grp-1').itemCount, 2);
+      expect(groups.firstWhere((g) => g.id == 'grp-2').itemCount, 1);
+    });
+
+    test('a menu with no modifiers yields no groups', () async {
+      api.nextBody = {
+        'categories': [
+          {
+            'id': 'cat-1',
+            'items': [
+              {'id': 'item-1', 'name': 'Plain', 'price': 10.0},
+            ],
+          },
+        ],
+      };
+
+      expect(await repo.fetchModifierGroups('rest-1'), isEmpty);
+    });
+  });
+
   group('modifiers', () {
     test('createModifier posts under its group', () async {
       api.nextStatus = 201;

@@ -36,7 +36,7 @@ class _FakeMenuRepository extends MenuRepository {
       ];
 
   @override
-  Future<List<ModifierGroup>> fetchModifierGroups() async => [
+  Future<List<ModifierGroup>> fetchModifierGroups(String restaurantId) async => [
         ModifierGroup(
           id: 'group-1',
           name: 'Spiciness',
