@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/menu/data/menu_repository.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
@@ -119,6 +120,7 @@ void main() {
     container = ProviderContainer(
       overrides: [
         menuRepositoryProvider.overrideWithValue(_FakeMenuRepository()),
+        restaurantIdProvider.overrideWithValue('rest-1'),
       ],
     );
     addTearDown(container.dispose);

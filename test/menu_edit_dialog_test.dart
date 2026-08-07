@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/menu/data/menu_repository.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/edit_category_dialog.dart';
@@ -81,7 +82,8 @@ void main() {
     Widget Function() dialog,
   ) async {
     final container = ProviderContainer(
-      overrides: [menuRepositoryProvider.overrideWithValue(repo)],
+      overrides: [menuRepositoryProvider.overrideWithValue(repo),
+        restaurantIdProvider.overrideWithValue('rest-1')],
     );
     addTearDown(container.dispose);
 

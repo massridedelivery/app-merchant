@@ -9,6 +9,9 @@ class RestaurantProfile {
   final RestaurantStatus status;
   final String? description;
   final String? cuisineType;
+  final double? lat;
+  final double? lng;
+  final String? verificationStatus;
   final double? minOrderAmount;
   final String? logoUrl;
   final String? coverImageUrl;
@@ -33,6 +36,9 @@ class RestaurantProfile {
     required this.status,
     this.description,
     this.cuisineType,
+    this.lat,
+    this.lng,
+    this.verificationStatus,
     this.minOrderAmount,
     this.logoUrl,
     this.coverImageUrl,
@@ -69,6 +75,9 @@ class RestaurantProfile {
       status: status,
       description: json['description'],
       cuisineType: json['cuisine_type'],
+      lat: (json['lat'] as num?)?.toDouble(),
+      lng: (json['lng'] as num?)?.toDouble(),
+      verificationStatus: json['verification_status'],
       minOrderAmount: (json['min_order_amount'] as num?)?.toDouble(),
       logoUrl: json['logo_url'],
       coverImageUrl: json['cover_image_url'],
@@ -86,12 +95,25 @@ class RestaurantProfile {
     );
   }
 
+  /// Registration inserts a placeholder row in the same transaction, so
+  /// `GET /profile` never 404s — "not onboarded" has to be read off the
+  /// contents instead (SCRUM-53 §2).
+  ///
+  /// Coordinates matter most: at 0,0 the restaurant is filtered out of customer
+  /// search entirely and receives no orders at all, silently.
+  bool get isPlaceholder =>
+      name == 'New Restaurant' || address == 'Pending Address' || !hasLocation;
+
+  bool get hasLocation => lat != null && lng != null && !(lat == 0 && lng == 0);
+
   RestaurantProfile copyWith({
     String? name,
     String? description,
     String? cuisineType,
     double? minOrderAmount,
     String? address,
+    double? lat,
+    double? lng,
     bool? isOpen,
     bool? isBusy,
     RestaurantStatus? status,
@@ -109,6 +131,9 @@ class RestaurantProfile {
       status: status ?? this.status,
       description: description ?? this.description,
       cuisineType: cuisineType ?? this.cuisineType,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      verificationStatus: verificationStatus,
       minOrderAmount: minOrderAmount ?? this.minOrderAmount,
       logoUrl: logoUrl,
       coverImageUrl: coverImageUrl,

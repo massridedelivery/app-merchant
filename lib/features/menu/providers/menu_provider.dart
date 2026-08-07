@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/menu/data/menu_repository.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/core/errors/app_failure.dart';
@@ -6,11 +7,16 @@ import 'package:merchant_app/core/errors/app_failure.dart';
 // ─── Menu Notifier ─────────────────────────────────────────────────────────
 
 class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
-  MenuNotifier(this._repository) : super(const AsyncValue.loading()) {
-    fetchMenu('rest-123');
+  MenuNotifier(this._repository, this._restaurantId)
+      : super(const AsyncValue.loading()) {
+    if (_restaurantId != null) fetchMenu(_restaurantId);
   }
 
   final MenuRepository _repository;
+
+  /// The merchant's own `user_id` — the menu endpoint takes it in the path.
+  /// Null before a session is loaded, in which case nothing is fetched.
+  final String? _restaurantId;
 
   List<MenuCategory> get _categories => state.value ?? const [];
 
@@ -373,7 +379,11 @@ class ModifierGroupNotifier
 
 final menuProvider =
     StateNotifierProvider<MenuNotifier, AsyncValue<List<MenuCategory>>>(
-        (ref) => MenuNotifier(ref.watch(menuRepositoryProvider)));
+  (ref) => MenuNotifier(
+    ref.watch(menuRepositoryProvider),
+    ref.watch(restaurantIdProvider),
+  ),
+);
 
 final modifierGroupProvider =
     StateNotifierProvider<ModifierGroupNotifier, AsyncValue<List<ModifierGroup>>>(

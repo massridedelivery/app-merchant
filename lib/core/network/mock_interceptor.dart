@@ -1,5 +1,11 @@
 import 'package:dio/dio.dart';
 
+/// Access token handed out by the mock `/auth/*` routes. Decodes to
+/// `{user_id, role: restaurant, exp: 2030}` so the whole session flow — claims,
+/// role check, restaurant id — works with no server.
+const String mockAccessToken =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOWYxYzBmNmUtM2IzYS00YTFlLTljMmQtNmE1ZTRiM2MyZDEwIiwicm9sZSI6InJlc3RhdXJhbnQiLCJzaWQiOiJtb2NrLXNlc3Npb24iLCJleHAiOjE4OTM0NTYwMDAsImlhdCI6MTc4NTkxMzYwMH0.mock-signature';
+
 class MockInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -7,10 +13,25 @@ class MockInterceptor extends Interceptor {
     final method = options.method;
 
     // ─── AUTH ───────────────────────────────────────────────
-    if (path.contains('/auth/login')) {
+    // A structurally real JWT so AuthClaims.tryParse works offline: role
+    // `restaurant`, user_id doubling as the restaurant_id, exp in 2030.
+    if (path.contains('/auth/login') ||
+        path.contains('/auth/register') ||
+        path.contains('/auth/refresh')) {
       return handler.resolve(Response(
         requestOptions: options,
-        data: {'token': 'mock_jwt_token_12345'},
+        data: {
+          'access_token': mockAccessToken,
+          'refresh_token': 'mock-refresh-token',
+          'expires_in': 86400,
+        },
+        statusCode: path.contains('/auth/register') ? 201 : 200,
+      ));
+    }
+    if (path.contains('/auth/logout')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {'message': 'logged out successfully'},
         statusCode: 200,
       ));
     }
