@@ -24,6 +24,13 @@ class SocketEventType {
   static const String orderCancelled = 'order_cancelled';
 }
 
+/// Connects to `{host}/ws?token=...`.
+///
+/// The server PINGs every 54s and closes if no PONG lands within 60s
+/// (SCRUM-53 §11). That is protocol-level and `web_socket_channel` answers on
+/// its own — there is deliberately no app-level heartbeat here.
+///
+/// Merchants only receive; every state change is an HTTP call.
 class SocketService {
   static const String wsUrl = 'ws://localhost:8080/ws';
   WebSocketChannel? _channel;
@@ -34,7 +41,15 @@ class SocketService {
   final StreamController<Map<String, dynamic>> _controller =
       StreamController.broadcast();
 
+  /// Emits true when the socket is live, false when it drops.
+  ///
+  /// Messages sent while disconnected are never queued or replayed
+  /// (SCRUM-53 §11), so listeners must refetch on every reconnect rather than
+  /// assume they missed nothing.
+  final StreamController<bool> _connection = StreamController.broadcast();
+
   Stream<Map<String, dynamic>> get stream => _controller.stream;
+  Stream<bool> get connectionStatus => _connection.stream;
   bool get isConnected => _channel != null || _isMockMode;
 
   Future<void> connect({bool mockMode = true}) async {
@@ -43,6 +58,7 @@ class SocketService {
     if (_isMockMode) {
       debugPrint('[SocketService] Running in mock mode');
       _startMockBroadcasting();
+      _connection.add(true);
       return;
     }
 
@@ -56,6 +72,7 @@ class SocketService {
     try {
       final uri = Uri.parse('$wsUrl?token=$token');
       _channel = WebSocketChannel.connect(uri);
+      _connection.add(true);
 
       _channel!.stream.listen(
         (message) {
@@ -68,10 +85,12 @@ class SocketService {
         },
         onError: (error) {
           debugPrint('WebSocket Error: $error');
+          _connection.add(false);
           _scheduleReconnect();
         },
         onDone: () {
           debugPrint('WebSocket Connection Closed');
+          _connection.add(false);
           _scheduleReconnect();
         },
       );
@@ -171,6 +190,7 @@ class SocketService {
   void dispose() {
     disconnect();
     _controller.close();
+    _connection.close();
   }
 }
 

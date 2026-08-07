@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:merchant_app/core/network/api_client.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
+import 'package:merchant_app/features/orders/data/order_repository.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
 import 'package:merchant_app/features/orders/providers/order_provider.dart';
 
@@ -59,6 +60,26 @@ Map<String, dynamic> newFoodOrder(String id) => {
     ],
   },
 };
+
+/// Counts how often the notifier goes back to the server.
+class _CountingOrderRepository extends OrderRepository {
+  _CountingOrderRepository() : super(ApiClient());
+
+  int pendingFetches = 0;
+  int historyFetches = 0;
+
+  @override
+  Future<List<Order>> fetchPending() async {
+    pendingFetches++;
+    return [];
+  }
+
+  @override
+  Future<List<Order>> fetchHistory() async {
+    historyFetches++;
+    return [];
+  }
+}
 
 void main() {
   late OrderNotifier notifier;
@@ -251,6 +272,37 @@ void main() {
       expect(state.ready, isEmpty);
       expect(state.delivering, isEmpty);
       expect(state.history, isEmpty);
+    });
+  });
+
+  group('reconciliation', () {
+    test('a reconnect refetches, because nothing is replayed', () async {
+      final repo = _CountingOrderRepository();
+      final socket = SocketService();
+      final c = ProviderContainer(overrides: [
+        orderRepositoryProvider.overrideWithValue(repo),
+        socketServiceProvider.overrideWithValue(socket),
+      ]);
+      addTearDown(c.dispose);
+
+      c.read(orderProvider);
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.pendingFetches, 1); // initial load
+      expect(repo.historyFetches, 1);
+
+      await socket.connect(mockMode: true); // emits connected
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repo.pendingFetches, 2);
+      expect(repo.historyFetches, 2);
+      socket.dispose();
+    });
+
+    test('the poll interval stays inside the rate-limit budget', () {
+      // 100 req/min per user (SCRUM-53 §1); this timer costs 2 requests
+      // per tick.
+      final perMinute = 2 * 60 / OrderNotifier.reconcileInterval.inSeconds;
+      expect(perMinute, lessThan(5));
     });
   });
 

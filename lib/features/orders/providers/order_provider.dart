@@ -60,6 +60,14 @@ class OrderNotifier extends StateNotifier<OrderState> {
   final OrderRepository _repository;
   final SocketService _socket;
   StreamSubscription<Map<String, dynamic>>? _socketSub;
+  StreamSubscription<bool>? _connectionSub;
+  Timer? _reconcileTimer;
+
+  /// The socket never reports `order_picked_up` to a restaurant, so an order
+  /// sitting with a driver would otherwise never leave the delivering bucket.
+  /// A slow poll closes that gap; at this interval it costs well under the
+  /// 100 req/min budget (SCRUM-53 §1, §11).
+  static const Duration reconcileInterval = Duration(seconds: 90);
 
   /// The status each flat event implies. `driver_assigned` is the reason this
   /// map exists at all — it carries `order_id` and `driver_id` only, no status,
@@ -76,10 +84,25 @@ class OrderNotifier extends StateNotifier<OrderState> {
     fetchOrders();
     fetchHistory();
     _subscribeToSocket();
+    _reconcileTimer =
+        Timer.periodic(reconcileInterval, (_) => _reconcile());
   }
 
   void _subscribeToSocket() {
     _socketSub = _socket.stream.listen(handleSocketEvent);
+    // Anything that happened while the socket was down was dropped, not
+    // buffered — so a reconnect means refetching, not resuming.
+    _connectionSub = _socket.connectionStatus.listen((connected) {
+      if (connected) _reconcile();
+    });
+  }
+
+  /// Pulls authoritative state back from the server. Failures are swallowed by
+  /// the fetches themselves; this runs unattended.
+  void _reconcile() {
+    if (!mounted) return;
+    fetchOrders();
+    fetchHistory();
   }
 
   /// Handles one server frame (SCRUM-53 §11). `new_food_order` nests the order
@@ -273,6 +296,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
   @override
   void dispose() {
     _socketSub?.cancel();
+    _connectionSub?.cancel();
+    _reconcileTimer?.cancel();
     super.dispose();
   }
 }
