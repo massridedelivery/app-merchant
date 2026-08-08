@@ -3,7 +3,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'mock_interceptor.dart';
 
 class ApiClient {
-  static const String baseUrl = 'http://localhost:8080/api/food';
+  // Server root. Most endpoints live under /api/food (see [baseUrl]), but a few
+  // (e.g. /auth/login) sit at the root — call those with an absolute URL built
+  // from [host] so they aren't prefixed with /api/food.
+  static const String host = 'http://localhost:8080';
+  static const String baseUrl = '$host/api/food';
   static const bool useMock = true; // Toggle this to false to use real API
   
   late final Dio _dio;

@@ -43,7 +43,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<bool> login(String username, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await apiClient.dio.post('/auth/login', data: {
+      // /auth/login is at the server root, not under /api/food, so use an
+      // absolute URL to bypass the Dio baseUrl prefix.
+      final response = await apiClient.dio.post('${ApiClient.host}/auth/login', data: {
         'username': username,
         'password': password,
         'role': 'restaurant',

@@ -60,8 +60,8 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final api = ApiClient();
-      await api.dio.post('/api/food/restaurant/withdraw', data: {
+      // baseUrl already includes /api/food, so the path must be relative to it.
+      await apiClient.dio.post('/restaurant/withdraw', data: {
         'amount': amount,
       });
 
