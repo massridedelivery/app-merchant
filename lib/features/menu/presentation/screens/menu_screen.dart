@@ -5,6 +5,7 @@ import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_category_dialog.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/add_menu_item_dialog.dart';
+import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
 
 class MenuScreen extends ConsumerStatefulWidget {
@@ -272,7 +273,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
                               color: Color(0xFF64748B),
                             ),
                           ),
-                          onTap: () {},
+                          onTap: () => _showItemActions(item),
                         ),
                       ],
                     );
@@ -297,6 +298,118 @@ class _MenuScreenState extends ConsumerState<MenuScreen>
         size: 24,
       ),
     );
+  }
+
+  // ─── ITEM ACTIONS (edit / availability / delete) ──────────────────────────
+
+  void _showItemActions(MenuItem item) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.name,
+                        style: AppTypography.body1.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.semanticGrayNeutralFgHigh,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '฿${item.price.toStringAsFixed(0)}',
+                      style: AppTypography.body1.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(
+                  item.isAvailable
+                      ? Icons.remove_shopping_cart_outlined
+                      : Icons.check_circle_outline,
+                ),
+                title: Text(item.isAvailable ? 'ทำเครื่องหมายสินค้าหมด' : 'กลับมาพร้อมขาย'),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  await _runMenuAction(
+                    () => ref
+                        .read(menuProvider.notifier)
+                        .toggleItemAvailability(item),
+                    item.isAvailable ? 'ทำเครื่องหมายสินค้าหมดแล้ว' : 'กลับมาพร้อมขายแล้ว',
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
+                title: const Text('ลบเมนูนี้',
+                    style: TextStyle(color: Color(0xFFDC2626))),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (dCtx) => AlertDialog(
+                      title: const Text('ลบเมนู'),
+                      content: Text('ต้องการลบ "${item.name}" ใช่หรือไม่?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, false),
+                          child: const Text('ยกเลิก'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(dCtx, true),
+                          child: const Text('ลบ',
+                              style: TextStyle(color: Color(0xFFDC2626))),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true) {
+                    await _runMenuAction(
+                      () => ref
+                          .read(menuProvider.notifier)
+                          .deleteItem(item.categoryId, item.id),
+                      'ลบเมนูแล้ว',
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _runMenuAction(
+      Future<void> Function() action, String successMsg) async {
+    try {
+      await action();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(successMsg)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    }
   }
 
   // ─── MODIFIER GROUPS TAB ──────────────────────────────────────────────────

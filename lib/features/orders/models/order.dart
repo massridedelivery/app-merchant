@@ -18,10 +18,17 @@ class OrderItem {
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
+    // Real backend sends `selected_modifiers` as an array of
+    // { id, name, price } objects (internal_foodorder.SelectedModifier).
+    // Legacy mock data sends an array of plain strings. Support both, and
+    // surface the modifier *name* for display.
     final mods = json['selected_modifiers'] ?? json['modifiers'];
     List<String> modList = [];
     if (mods is List) {
-      modList = mods.map((m) => m.toString()).toList();
+      modList = mods
+          .map((m) => m is Map ? (m['name']?.toString() ?? '') : m.toString())
+          .where((s) => s.isNotEmpty)
+          .toList();
     }
     return OrderItem(
       id: json['id'] ?? '',

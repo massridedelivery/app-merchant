@@ -58,25 +58,45 @@ class OrderNotifier extends StateNotifier<OrderState> {
     _subscribeToSocket();
   }
 
+  // Real backend WebSocket contract (see docs/MERCHANT_API_INTEGRATION.md §4).
+  // Payload is FLAT: { type, order_id, status, order?, driver_id?, reason? }.
   void _subscribeToSocket() {
     socketService.stream.listen((event) {
-      final type = event['type'];
-      final data = event['data'] as Map<String, dynamic>?;
-      if (data == null) return;
+      final type = event['type'] as String?;
+      if (type == null) return;
 
-      if (type == 'NEW_ORDER') {
-        final order = Order.fromJson(data);
-        state = state.copyWith(
-          preparing: [order, ...state.preparing],
-          hasNewOrder: true,
-          newestIncomingOrder: order,
-        );
-      } else if (type == 'ORDER_STATUS_UPDATED') {
-        final orderId = data['orderId'] as String?;
-        final newStatus = data['status'] as String?;
-        if (orderId != null && newStatus != null) {
-          _handleStatusUpdate(orderId, newStatus);
-        }
+      switch (type) {
+        case 'order_created':
+          final orderJson = event['order'] as Map<String, dynamic>?;
+          if (orderJson == null) return;
+          final order = Order.fromJson(orderJson);
+          if (state.allActive.any((o) => o.id == order.id)) return; // de-dupe
+          state = state.copyWith(
+            preparing: [order, ...state.preparing],
+            hasNewOrder: true,
+            newestIncomingOrder: order,
+          );
+          break;
+
+        case 'order_accepted': // RESTAURANT_ACCEPTED
+        case 'order_preparing': // PREPARING
+        case 'order_ready': // READY_FOR_PICKUP
+        case 'order_picked_up': // DRIVER_PICKED_UP
+        case 'order_delivered': // DELIVERED
+        case 'order_rejected': // RESTAURANT_REJECTED
+        case 'order_cancelled': // CANCELLED
+          final orderId = event['order_id'] as String?;
+          final newStatus = event['status'] as String?;
+          if (orderId != null && newStatus != null) {
+            _handleStatusUpdate(orderId, newStatus);
+          }
+          break;
+
+        case 'driver_assigned':
+          // A rider was matched. Status stays READY_FOR_PICKUP; the order keeps
+          // sitting in the Ready bucket until `order_picked_up` arrives.
+          // (driver_id is available at event['driver_id'] once the model stores it.)
+          break;
       }
     });
   }
@@ -88,48 +108,31 @@ class OrderNotifier extends StateNotifier<OrderState> {
   }
 
   void _updateOrderInAll(String id, String status) {
-    Order? updated;
-    final newPreparing = state.preparing.map((o) {
-      if (o.id == id) {
-        updated = o.copyWith(status: status);
-        return updated!;
-      }
-      return o;
-    }).toList();
-    final newReady = state.ready.map((o) {
-      if (o.id == id) {
-        updated = o.copyWith(status: status);
-        return updated!;
-      }
-      return o;
-    }).toList();
-    state = state.copyWith(preparing: newPreparing, ready: newReady);
+    Order mapUpdate(Order o) => o.id == id ? o.copyWith(status: status) : o;
+    state = state.copyWith(
+      preparing: state.preparing.map(mapUpdate).toList(),
+      ready: state.ready.map(mapUpdate).toList(),
+      delivering: state.delivering.map(mapUpdate).toList(),
+    );
   }
 
   void _rebucketOrder(String id, String status) {
+    // Locate the order in any active bucket.
     Order? found;
-    List<Order> newPreparing = state.preparing;
-    List<Order> newReady = state.ready;
-    List<Order> newDelivering = state.delivering;
-    List<Order> newHistory = state.history;
-
-    // Find in preparing
-    final pIdx = state.preparing.indexWhere((o) => o.id == id);
-    if (pIdx != -1) found = state.preparing[pIdx].copyWith(status: status);
-
-    // Find in ready
-    if (found == null) {
-      final rIdx = state.ready.indexWhere((o) => o.id == id);
-      if (rIdx != -1) found = state.ready[rIdx].copyWith(status: status);
+    for (final o in [...state.preparing, ...state.ready, ...state.delivering]) {
+      if (o.id == id) {
+        found = o.copyWith(status: status);
+        break;
+      }
     }
-
     if (found == null) return;
 
-    // Remove from all lists
-    newPreparing = newPreparing.where((o) => o.id != id).toList();
-    newReady = newReady.where((o) => o.id != id).toList();
+    // Remove from every active list, then drop into the bucket for `status`.
+    List<Order> newPreparing = state.preparing.where((o) => o.id != id).toList();
+    List<Order> newReady = state.ready.where((o) => o.id != id).toList();
+    List<Order> newDelivering = state.delivering.where((o) => o.id != id).toList();
+    List<Order> newHistory = state.history;
 
-    // Add to correct bucket
     switch (status) {
       case 'PLACED':
       case 'RESTAURANT_ACCEPTED':
@@ -137,12 +140,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
         newPreparing = [found, ...newPreparing];
         break;
       case 'READY_FOR_PICKUP':
+      case 'DRIVER_ASSIGNED':
         newReady = [found, ...newReady];
         break;
-      case 'DELIVERY':
+      case 'DRIVER_PICKED_UP':
         newDelivering = [found, ...newDelivering];
         break;
-      case 'COMPLETED':
+      case 'DELIVERED':
       case 'RESTAURANT_REJECTED':
       case 'CANCELLED':
         newHistory = [found, ...newHistory];
@@ -225,6 +229,25 @@ class OrderNotifier extends StateNotifier<OrderState> {
     try {
       await apiClient.dio.post('/restaurant/orders/$id/ready');
       _rebucketOrder(id, 'READY_FOR_PICKUP');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Adjust prep time and/or flag out-of-stock items on an order.
+  /// PUT /api/food/restaurant/orders/{id}/ops
+  Future<bool> updateOps(
+    String id, {
+    int? prepTimeAdjustmentMin,
+    List<String> oosOrderItemIds = const [],
+  }) async {
+    try {
+      await apiClient.dio.put('/restaurant/orders/$id/ops', data: {
+        if (prepTimeAdjustmentMin != null)
+          'prep_time_adjustment_min': prepTimeAdjustmentMin,
+        'oos_order_item_ids': oosOrderItemIds,
+      });
       return true;
     } catch (_) {
       return false;

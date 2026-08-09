@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/core/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // State
@@ -40,21 +43,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<bool> login(String username, String password) async {
+  Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       // /auth/login is at the server root, not under /api/food, so use an
       // absolute URL to bypass the Dio baseUrl prefix.
+      // Backend contract: body uses `email` (not `username`), there is no
+      // `role` field (role lives in the JWT), and the response is a TokenPair
+      // { access_token, refresh_token, expires_in } — not { token }.
       final response = await apiClient.dio.post('${ApiClient.host}/auth/login', data: {
-        'username': username,
+        'email': email,
         'password': password,
-        'role': 'restaurant',
       });
 
-      if (response.statusCode == 200 && response.data['token'] != null) {
-        final token = response.data['token'];
-        await ApiClient.saveToken(token);
-        apiClient.dio.options.headers['Authorization'] = 'Bearer $token'; // Update current instance
+      final accessToken = response.data['access_token'];
+      if (response.statusCode == 200 && accessToken != null) {
+        await ApiClient.saveToken(accessToken as String);
+        final refreshToken = response.data['refresh_token'];
+        if (refreshToken != null) {
+          await ApiClient.saveRefreshToken(refreshToken as String);
+        }
+        apiClient.dio.options.headers['Authorization'] = 'Bearer $accessToken'; // Update current instance
+        // Register this device for push once we're authenticated (no-op until
+        // Firebase Messaging is wired — see NotificationService).
+        unawaited(notificationService.registerCurrentDevice());
         state = state.copyWith(isLoading: false, isAuthenticated: true);
         return true;
       } else {
@@ -80,6 +92,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    await notificationService.unregisterCurrentDevice();
     await ApiClient.clearToken();
     apiClient.dio.options.headers.remove('Authorization');
     state = state.copyWith(isAuthenticated: false);

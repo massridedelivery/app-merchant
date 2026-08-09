@@ -31,7 +31,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   void initState() {
     super.initState();
-    socketService.connect(mockMode: true);
+    socketService.connect(mockMode: false);
   }
 
   @override

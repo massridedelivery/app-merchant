@@ -5,11 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class SocketService {
-  static const String wsUrl = 'ws://localhost:8080/ws';
+  static const String wsUrl = 'wss://driver-api-dev.nutchaphut.dev/ws';
   WebSocketChannel? _channel;
   Timer? _mockTimer;
   Timer? _reconnectTimer;
-  bool _isMockMode = true; // Enable mock mode by default (no real server)
+  bool _isMockMode = false; // Set to true only for offline/demo testing
 
   final StreamController<Map<String, dynamic>> _controller =
       StreamController.broadcast();
@@ -17,7 +17,7 @@ class SocketService {
   Stream<Map<String, dynamic>> get stream => _controller.stream;
   bool get isConnected => _channel != null || _isMockMode;
 
-  Future<void> connect({bool mockMode = true}) async {
+  Future<void> connect({bool mockMode = false}) async {
     _isMockMode = mockMode;
 
     if (_isMockMode) {
