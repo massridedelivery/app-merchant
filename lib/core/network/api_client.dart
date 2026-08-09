@@ -6,9 +6,9 @@ class ApiClient {
   // Server root. Most endpoints live under /api/food (see [baseUrl]), but a few
   // (e.g. /auth/login) sit at the root — call those with an absolute URL built
   // from [host] so they aren't prefixed with /api/food.
-  static const String host = 'http://localhost:8080';
+  static const String host = 'https://driver-api-dev.nutchaphut.dev';
   static const String baseUrl = '$host/api/food';
-  static const bool useMock = true; // Toggle this to false to use real API
+  static const bool useMock = false; // Toggle this to true to use the mock interceptor
   
   late final Dio _dio;
   
@@ -58,6 +58,17 @@ class ApiClient {
   static Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('refresh_token');
+  }
+
+  static Future<void> saveRefreshToken(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('refresh_token', token);
+  }
+
+  static Future<String?> getRefreshToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('refresh_token');
   }
 }
 
