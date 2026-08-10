@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
-import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
@@ -63,7 +61,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               ),
               child: const Center(
                 child: AppIcon(
-                  AppIcons.rotationArrow, // Represents the rotation icon in design
+                  AppIcons
+                      .rotationArrow, // Represents the rotation icon in design
                   color: Colors.white,
                   size: 50,
                 ),

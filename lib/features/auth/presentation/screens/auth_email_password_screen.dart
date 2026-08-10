@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:merchant_app/core/errors/failure_snack_bar.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
@@ -193,20 +194,17 @@ class _AuthEmailPasswordScreenState
                           if (isRegister) {
                             context.push('/register/business_info');
                           } else {
-                            final ok = await ref
-                                .read(authProvider.notifier)
-                                .login(
-                                  _emailController.text.trim(),
-                                  _passwordController.text,
-                                );
+                            final ok = await runGuarded(
+                              context,
+                              () => ref
+                                  .read(authProvider.notifier)
+                                  .login(
+                                    _emailController.text.trim(),
+                                    _passwordController.text,
+                                  ),
+                            );
                             if (ok && context.mounted) {
                               context.go('/');
-                            } else if (context.mounted) {
-                              final err =
-                                  ref.read(authProvider).error ?? 'เข้าสู่ระบบไม่สำเร็จ';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(err)),
-                              );
                             }
                           }
                         }
