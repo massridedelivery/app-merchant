@@ -32,7 +32,13 @@ class SocketEventType {
 ///
 /// Merchants only receive; every state change is an HTTP call.
 class SocketService {
-  static const String wsUrl = 'wss://driver-api-dev.nutchaphut.dev/ws';
+  /// Full WebSocket URL, injected at build time from `env/<flavor>.json` via
+  /// `--dart-define-from-file`. The localhost default is for a bare
+  /// `flutter run` with no env file.
+  static const String wsUrl = String.fromEnvironment(
+    'WS_URL',
+    defaultValue: 'ws://localhost:8080/ws',
+  );
   WebSocketChannel? _channel;
   Timer? _mockTimer;
   Timer? _reconnectTimer;
