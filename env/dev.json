@@ -1,0 +1,5 @@
+{
+  "API_BASE_URL": "https://driver-api-dev.nutchaphut.dev/api/food",
+  "WS_URL": "wss://driver-api-dev.nutchaphut.dev/ws",
+  "ENV": "dev"
+}

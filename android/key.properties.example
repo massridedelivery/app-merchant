@@ -1,0 +1,7 @@
+# Copy to android/key.properties and fill in real values for local release builds.
+# In CI this file is generated from GitHub Secrets — see docs/CICD_SETUP.md.
+# NEVER commit the real key.properties or the .jks keystore.
+storeFile=upload-keystore.jks
+storePassword=your-keystore-password
+keyAlias=upload
+keyPassword=your-key-password

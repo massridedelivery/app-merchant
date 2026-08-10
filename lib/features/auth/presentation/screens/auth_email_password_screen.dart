@@ -193,9 +193,20 @@ class _AuthEmailPasswordScreenState
                           if (isRegister) {
                             context.push('/register/business_info');
                           } else {
-                            await ref.read(authProvider.notifier).mockLogin();
-                            if (context.mounted) {
+                            final ok = await ref
+                                .read(authProvider.notifier)
+                                .login(
+                                  _emailController.text.trim(),
+                                  _passwordController.text,
+                                );
+                            if (ok && context.mounted) {
                               context.go('/');
+                            } else if (context.mounted) {
+                              final err =
+                                  ref.read(authProvider).error ?? 'เข้าสู่ระบบไม่สำเร็จ';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(err)),
+                              );
                             }
                           }
                         }

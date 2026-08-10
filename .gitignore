@@ -43,3 +43,24 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# --- CI/CD secrets: never commit these ---
+# Android signing
+android/key.properties
+**/*.jks
+**/*.keystore
+android/app/upload-keystore.jks
+android/play-service-account.json
+# iOS / App Store Connect
+ios/private_keys/
+**/AuthKey_*.p8
+ios/fastlane/report.xml
+android/fastlane/report.xml
+# Fastlane
+**/fastlane/README.md
+.bundle/
+vendor/bundle/
+
+# Local environment overrides (keep dev.json/prod.json templates in git,
+# ignore any *.local.json you create for real secrets)
+env/*.local.json
