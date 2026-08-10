@@ -55,6 +55,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Dev builds get a `.dev` application ID so a debug install can
+            // sit alongside a production install on the same device.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+        }
         release {
             // Use the real release keystore when key.properties is present
             // (CI / signed builds); otherwise fall back to debug signing so
