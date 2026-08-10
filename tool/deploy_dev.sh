@@ -34,6 +34,12 @@ DART_DEFINE="env/dev.json"
 : "${APP_STORE_CONNECT_KEY_ID:?set APP_STORE_CONNECT_KEY_ID (env or $ENV_FILE)}"
 : "${APP_STORE_CONNECT_ISSUER_ID:?set APP_STORE_CONNECT_ISSUER_ID (env or $ENV_FILE)}"
 
+# --- bump the build number --------------------------------------------------
+# TestFlight rejects a build number it has already seen, so every deploy needs
+# a fresh one. The bump stays in the working tree for you to commit.
+echo "==> Bumping build number"
+bash tool/bump_build.sh
+
 # --- always restore the project file ---------------------------------------
 BACKUP="$(mktemp)"
 cp "$PBXPROJ" "$BACKUP"
@@ -61,3 +67,4 @@ xcrun altool --upload-app --type ios \
 
 echo "==> Done. The build will appear under MassMerchantDev in App Store"
 echo "    Connect once Apple finishes processing."
+echo "    Remember to commit the pubspec.yaml build-number bump."
