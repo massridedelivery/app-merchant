@@ -54,6 +54,7 @@ android/play-service-account.json
 # iOS / App Store Connect
 ios/private_keys/
 **/AuthKey_*.p8
+ios/.appstore_connect.env
 ios/fastlane/report.xml
 android/fastlane/report.xml
 # Fastlane
