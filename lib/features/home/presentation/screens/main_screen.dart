@@ -327,25 +327,4 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
     );
   }
-
-  PreferredSizeWidget? _buildAppBar(int index, WidgetRef ref) {
-    if (index == 0 || index == 4) return null;
-    final titles = ['หน้าแรก', 'คำสั่งซื้อ', 'เมนู', 'การเงิน', 'เพิ่มเติม'];
-    return AppBar(
-      title: Text(
-        titles[index],
-        style: AppTypography.heading5.copyWith(
-          color: AppColors.semanticGrayNeutralFgHigh,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      bottom: const PreferredSize(
-        preferredSize: Size.fromHeight(1),
-        child: Divider(height: 1, color: Color(0xFFEEEEEE)),
-      ),
-    );
-  }
 }
