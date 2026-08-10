@@ -4,6 +4,8 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
     <string>แอปนี้ต้องใช้ตำแหน่งเพื่อแสดงการรับส่งและค้นหาคนขับใกล้คุณ</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
