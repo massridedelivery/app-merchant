@@ -46,6 +46,40 @@ class AuthRepository {
     return TokenPair.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Sends an SMS OTP to [phone] (E.164, e.g. `+66812345678`). The returned
+  /// `ref_id` must be passed back to [verifyOtp]; `is_registered` says whether
+  /// this is a login or a first-time sign-up.
+  Future<SendOtpResult> sendOtp({
+    required String phone,
+    String? deviceId,
+  }) async {
+    final response = await _api.dio.post('/auth/otp/send', data: {
+      'phone': phone,
+      'device_id': ?deviceId,
+    });
+    return SendOtpResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Verifies the SMS [otp]. On success the server creates the session (and, for
+  /// a new phone, the `restaurant` account + placeholder profile) and returns a
+  /// token pair. [fullName] is only used when registering.
+  Future<TokenPair> verifyOtp({
+    required String phone,
+    required String otp,
+    required String refId,
+    String fullName = '',
+    String role = 'restaurant',
+  }) async {
+    final response = await _api.dio.post('/auth/otp/verify', data: {
+      'phone': phone,
+      'otp': otp,
+      'ref_id': refId,
+      'full_name': fullName,
+      'role': role,
+    });
+    return TokenPair.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<TokenPair> refresh(String refreshToken) async {
     final response = await _api.dio
         .post('/auth/refresh', data: {'refresh_token': refreshToken});

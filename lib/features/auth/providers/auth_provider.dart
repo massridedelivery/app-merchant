@@ -96,6 +96,69 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Local `08…` → E.164 `+668…`; the OTP endpoints reject anything else.
+  static String _toE164(String phone) {
+    final p = phone.trim().replaceAll(' ', '');
+    if (p.startsWith('+')) return p;
+    if (p.startsWith('0')) return '+66${p.substring(1)}';
+    return '+66$p';
+  }
+
+  /// Step 1 of phone auth: request an SMS OTP. Returns the `ref_id` +
+  /// `is_registered` the OTP screen needs.
+  Future<SendOtpResult> requestOtp(String phone) async {
+    try {
+      return await _repository.sendOtp(phone: _toE164(phone));
+    } on DioException catch (e) {
+      throw AppFailure(_errorText(e, 'ส่ง OTP ไม่สำเร็จ'), e);
+    }
+  }
+
+  /// Step 2 of phone auth: verify the OTP. On success the server returns a
+  /// session (creating the restaurant account on first sign-up); we persist it
+  /// and flip [isAuthenticated] so the router lands on the home shell.
+  Future<void> confirmOtp({
+    required String phone,
+    required String otp,
+    required String refId,
+    String fullName = '',
+  }) async {
+    try {
+      final tokens = await _repository.verifyOtp(
+        phone: _toE164(phone),
+        otp: otp,
+        refId: refId,
+        fullName: fullName,
+      );
+      final claims = AuthClaims.tryParse(tokens.accessToken);
+      if (claims == null) throw const AppFailure('ยืนยัน OTP ไม่สำเร็จ');
+      if (!claims.isRestaurant) {
+        throw const AppFailure('บัญชีนี้ไม่ใช่บัญชีร้านค้า');
+      }
+      await _repository.persistSession(tokens);
+      if (!mounted) return;
+      state = state.copyWith(
+        isLoading: false,
+        isAuthenticated: true,
+        claims: claims,
+      );
+    } on AppFailure {
+      rethrow;
+    } on DioException catch (e) {
+      throw AppFailure(_errorText(e, 'รหัส OTP ไม่ถูกต้อง'), e);
+    }
+  }
+
+  /// Backend errors come back as `{error: …}` (OTP) or `{message: …}` (auth);
+  /// fall back to a Thai default so nothing raw ever reaches the UI.
+  String _errorText(DioException e, String fallback) {
+    final data = e.response?.data;
+    if (data is Map) {
+      return (data['error'] ?? data['message'] ?? fallback).toString();
+    }
+    return fallback;
+  }
+
   /// Shortcut used by the onboarding screens while the real flow is stubbed.
   /// Deliberately runs the same path as [login] so claims, the role check and
   /// the restaurant id all behave identically against MockInterceptor.
@@ -130,3 +193,21 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
 final restaurantIdProvider = Provider<String?>(
   (ref) => ref.watch(authProvider).restaurantId,
 );
+
+/// Carries the in-progress phone number + `ref_id` from the phone screen to the
+/// OTP screen (set by [AuthNotifier.requestOtp], read on OTP submit).
+class OtpFlow {
+  const OtpFlow({
+    required this.phone,
+    required this.refId,
+    required this.isRegistered,
+    required this.isLogin,
+  });
+
+  final String phone;
+  final String refId;
+  final bool isRegistered;
+  final bool isLogin;
+}
+
+final otpFlowProvider = StateProvider<OtpFlow?>((ref) => null);

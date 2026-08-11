@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 import 'package:merchant_app/core/widgets/otp_input.dart';
@@ -21,6 +22,8 @@ class AuthRegisterOtpScreen extends ConsumerStatefulWidget {
 class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
   int _secondsRemaining = 174;
   Timer? _timer;
+  bool _verifying = false;
+  int _attempt = 0; // bumping this clears the OtpInput after a failed try
 
   @override
   void initState() {
@@ -51,9 +54,28 @@ class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  void _onCompleted(String otp) {
-    if (otp.length == 4) {
-      context.push('/register/email_password?flow=register');
+  Future<void> _onCompleted(String otp) async {
+    if (_verifying) return;
+    final flow = ref.read(otpFlowProvider);
+    if (flow == null) return;
+    setState(() => _verifying = true);
+    try {
+      await ref.read(authProvider.notifier).confirmOtp(
+            phone: flow.phone,
+            otp: otp,
+            refId: flow.refId,
+            fullName: 'ร้านค้าใหม่',
+          );
+      // Success: the account/session now exists and the router redirects to '/'.
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
+        setState(() {
+          _verifying = false;
+          _attempt++; // reset the boxes for another try
+        });
+      }
     }
   }
 
@@ -105,7 +127,7 @@ class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
                 decoration: AppTheme.premiumCardDecoration,
                 child: Column(
                   children: [
-                    OtpInput(onCompleted: _onCompleted),
+                    OtpInput(key: ValueKey(_attempt), onCompleted: _onCompleted),
                     const SizedBox(height: 40),
                     GestureDetector(
                       onTap: _secondsRemaining == 0

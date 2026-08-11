@@ -22,6 +22,7 @@ class _AuthLoginOtpScreenState extends ConsumerState<AuthLoginOtpScreen> {
   int _secondsRemaining = 174;
   Timer? _timer;
   bool _submitting = false;
+  int _attempt = 0; // bumping this clears the OtpInput after a failed try
 
   @override
   void initState() {
@@ -53,11 +54,27 @@ class _AuthLoginOtpScreenState extends ConsumerState<AuthLoginOtpScreen> {
   }
 
   Future<void> _onCompleted(String otp) async {
-    if (otp.length != 4 || _submitting) return;
+    if (_submitting) return;
+    final flow = ref.read(otpFlowProvider);
+    if (flow == null) return;
     setState(() => _submitting = true);
-    // Login flow: update auth state and go home.
-    await ref.read(authProvider.notifier).mockLogin();
-    if (mounted) context.go('/');
+    try {
+      await ref.read(authProvider.notifier).confirmOtp(
+            phone: flow.phone,
+            otp: otp,
+            refId: flow.refId,
+          );
+      // Success: the session is live and the router redirects to '/'.
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
+        setState(() {
+          _submitting = false;
+          _attempt++;
+        });
+      }
+    }
   }
 
   @override
@@ -99,7 +116,7 @@ class _AuthLoginOtpScreenState extends ConsumerState<AuthLoginOtpScreen> {
                 decoration: AppTheme.premiumCardDecoration,
                 child: Column(
                   children: [
-                    OtpInput(onCompleted: _onCompleted),
+                    OtpInput(key: ValueKey(_attempt), onCompleted: _onCompleted),
                     const SizedBox(height: 24),
                     if (_submitting)
                       const Padding(
