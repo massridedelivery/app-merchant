@@ -25,6 +25,29 @@ class TokenPair {
   }
 }
 
+/// Result of `POST /auth/otp/send`. `refId` must be echoed back to
+/// `/auth/otp/verify`; `isRegistered` tells whether this phone already has an
+/// account (login) or is new (register).
+class SendOtpResult {
+  const SendOtpResult({
+    required this.refId,
+    required this.isRegistered,
+    this.message,
+  });
+
+  final String refId;
+  final bool isRegistered;
+  final String? message;
+
+  factory SendOtpResult.fromJson(Map<String, dynamic> json) {
+    return SendOtpResult(
+      refId: json['ref_id'] ?? '',
+      isRegistered: json['is_registered'] ?? false,
+      message: json['message'] as String?,
+    );
+  }
+}
+
 /// Claims carried by the HS256 access token.
 ///
 /// There is no `/me` endpoint — the user id and role are only available by

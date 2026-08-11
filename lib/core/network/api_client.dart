@@ -4,15 +4,29 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'mock_interceptor.dart';
 
 class ApiClient {
-  /// Bare host. The backend serves three different prefixes off it
-  /// (SCRUM-53 §1), so repositories carry the full path:
+  /// Bare host the API is served from. The backend exposes three prefixes off
+  /// it (SCRUM-53 §1), so repositories carry the full path:
   ///
   /// * REST — `{host}/api/...`, e.g. `/api/food/restaurant/profile`
   /// * Auth — `{host}/auth/...`, with no `/api` prefix
   /// * WS   — `{host}/ws`
-  // TODO(SCRUM-53): dev/staging/prod hosts are the ticket's one open item.
-  static const String baseUrl = 'http://localhost:8080';
-  static const bool useMock = true; // Toggle this to false to use real API
+  ///
+  /// Injected at build time from `env/<flavor>.json` via
+  /// `--dart-define-from-file`. Must be a **bare host** (no `/api` suffix), or
+  /// the paths above would double up. The localhost default is for a bare
+  /// `flutter run` with no env file.
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8080',
+  );
+
+  /// When true, [MockInterceptor] answers every request with canned data and
+  /// the real host is never contacted. Defaults to true so a bare `flutter run`
+  /// works offline; env files set `USE_MOCK: false` to hit the real backend.
+  static const bool useMock = bool.fromEnvironment(
+    'USE_MOCK',
+    defaultValue: true,
+  );
 
   static const String _accessTokenKey = 'auth_token';
   static const String _refreshTokenKey = 'refresh_token';
