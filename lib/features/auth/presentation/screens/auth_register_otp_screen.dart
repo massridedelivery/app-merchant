@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
@@ -9,6 +8,7 @@ import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
+import 'package:merchant_app/core/widgets/otp_input.dart';
 
 class AuthRegisterOtpScreen extends ConsumerStatefulWidget {
   const AuthRegisterOtpScreen({super.key});
@@ -19,11 +19,6 @@ class AuthRegisterOtpScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
-  final List<TextEditingController> _controllers = List.generate(
-    4,
-    (_) => TextEditingController(),
-  );
-  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
   int _secondsRemaining = 174;
   Timer? _timer;
 
@@ -31,19 +26,13 @@ class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
   void initState() {
     super.initState();
     _startTimer();
-    for (int i = 0; i < 4; i++) {
-      _controllers[i].addListener(() {
-        if (mounted) setState(() {});
-      });
-    }
   }
 
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
-        setState(() {
-          _secondsRemaining--;
-        });
+        setState(() => _secondsRemaining--);
       } else {
         _timer?.cancel();
       }
@@ -53,25 +42,17 @@ class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
     super.dispose();
   }
 
   String _formatTime(int seconds) {
-    int minutes = seconds ~/ 60;
-    int remainingSeconds = seconds % 60;
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
   }
 
-  void _onInputComplete() {
-    String otp = _controllers.map((c) => c.text).join();
+  void _onCompleted(String otp) {
     if (otp.length == 4) {
-      // Registration flow continues
       context.push('/register/email_password?flow=register');
     }
   }
@@ -103,7 +84,6 @@ class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              // Header
               Text(
                 'ยืนยันตัวตนการสมัคร',
                 style: AppTypography.heading3.copyWith(
@@ -120,91 +100,18 @@ class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
                 ),
               ),
               const SizedBox(height: 48),
-
-              // OTP Card
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 30),
                 decoration: AppTheme.premiumCardDecoration,
                 child: Column(
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(4, (index) {
-                        return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 8),
-                          width: 64,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: _focusNodes[index].hasFocus
-                                  ? AppColors.primary
-                                  : const Color(0xFFE2E8F0),
-                              width: _focusNodes[index].hasFocus ? 2 : 1,
-                            ),
-                            boxShadow: _focusNodes[index].hasFocus
-                                ? [
-                                    BoxShadow(
-                                      color: AppColors.primary.withOpacity(0.1),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: TextField(
-                              controller: _controllers[index],
-                              focusNode: _focusNodes[index],
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.center,
-                              showCursor: false,
-                              style: AppTypography.heading3.copyWith(
-                                color: AppColors.semanticGrayNeutralFgHigh,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              inputFormatters: [
-                                LengthLimitingTextInputFormatter(1),
-                                FilteringTextInputFormatter.digitsOnly,
-                              ],
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                fillColor: Colors.transparent,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              onChanged: (value) {
-                                if (value.isNotEmpty) {
-                                  if (index < 3) {
-                                    FocusScope.of(
-                                      context,
-                                    ).requestFocus(_focusNodes[index + 1]);
-                                  } else {
-                                    _focusNodes[index].unfocus();
-                                    _onInputComplete();
-                                  }
-                                } else if (value.isEmpty && index > 0) {
-                                  FocusScope.of(
-                                    context,
-                                  ).requestFocus(_focusNodes[index - 1]);
-                                }
-                              },
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
+                    OtpInput(onCompleted: _onCompleted),
                     const SizedBox(height: 40),
-                    // Timer
                     GestureDetector(
                       onTap: _secondsRemaining == 0
                           ? () {
-                              setState(() {
-                                _secondsRemaining = 174;
-                                _startTimer();
-                              });
+                              setState(() => _secondsRemaining = 174);
+                              _startTimer();
                             }
                           : null,
                       child: Container(
