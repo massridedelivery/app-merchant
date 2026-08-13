@@ -5,10 +5,12 @@ import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/ads/presentation/screens/ads_screen.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
-import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
-import 'package:merchant_app/features/profile/presentation/screens/bank_account_screen.dart';
-import 'package:merchant_app/features/profile/presentation/screens/closing_hours_screen.dart';
-import 'package:merchant_app/features/profile/presentation/screens/store_details_screen.dart';
+import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
+import 'package:merchant_app/features/finance/presentation/screens/bank_account_screen.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/closing_hours_screen.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/store_details_screen.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -103,8 +105,8 @@ class ProfileScreen extends ConsumerWidget {
                                   color: Color(0xFFF1F5F9),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.storefront_rounded,
+                                child: const AppIcon(
+                                  AppIcons.storeLine,
                                   size: 40,
                                   color: Color(0xFF94A3B8),
                                 ),
@@ -155,7 +157,7 @@ class ProfileScreen extends ConsumerWidget {
 
                     // ─── Menu Cards ──────────────────────
                     _buildMenuCard(
-                      icon: Icons.store_mall_directory_rounded,
+                      icon: AppIcons.storeLine,
                       title: 'ร้าน',
                       subtitle: 'จัดการข้อมูลร้าน, ภาพ และที่อยู่',
                       onTap: () => Navigator.push(
@@ -167,7 +169,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     _buildMenuCard(
-                      icon: Icons.schedule_rounded,
+                      icon: AppIcons.clockLine,
                       title: 'เวลาเปิด-ปิด',
                       subtitle: 'วันหยุดพิเศษและเวลาจัดส่ง',
                       onTap: () => Navigator.push(
@@ -179,7 +181,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     _buildMenuCard(
-                      icon: Icons.account_balance_rounded,
+                      icon: AppIcons.buildingLine,
                       title: 'บัญชีธนาคาร',
                       subtitle: 'จัดการการรับเงินและขอถอนเงิน',
                       onTap: () => Navigator.push(
@@ -191,7 +193,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     _buildMenuCard(
-                      icon: Icons.campaign_rounded,
+                      icon: AppIcons.calloutFill,
                       title: 'โปรโมทร้านค้า (Ads)',
                       subtitle: 'จัดการงบประมาณและราคาประมูลรายวัน',
                       onTap: () => Navigator.push(
@@ -203,8 +205,8 @@ class ProfileScreen extends ConsumerWidget {
 
                     // ─── Logout ──────────────────────────
                     OutlinedButton.icon(
-                      icon: const Icon(
-                        Icons.logout_rounded,
+                      icon: const AppIcon(
+                        AppIcons.doorOpenLine,
                         color: AppColors.primary,
                       ),
                       label: Text(
@@ -240,7 +242,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   Widget _buildMenuCard({
-    required IconData icon,
+    required String icon,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
@@ -265,7 +267,7 @@ class ProfileScreen extends ConsumerWidget {
                     color: AppColors.primary.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: AppColors.primary, size: 24),
+                  child: AppIcon(icon, color: AppColors.primary, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -288,8 +290,8 @@ class ProfileScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
+                const AppIcon(
+                  AppIcons.chevronRightLine,
                   color: Color(0xFF94A3B8),
                   size: 16,
                 ),

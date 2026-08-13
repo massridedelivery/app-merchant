@@ -4,6 +4,8 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/presentation/widgets/auth_step_indicator.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthBusinessInfoScreen extends StatefulWidget {
   const AuthBusinessInfoScreen({super.key});
@@ -79,14 +81,18 @@ class _AuthBusinessInfoScreenState extends State<AuthBusinessInfoScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
         centerTitle: false,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -146,14 +152,14 @@ class _AuthBusinessInfoScreenState extends State<AuthBusinessInfoScreen> {
                         ),
                         child: const Row(
                           children: [
-                            Icon(
-                              Icons.location_on_outlined,
+                            AppIcon(
+                              AppIcons.locationPinLine,
                               color: AppColors.primary,
                             ),
                             SizedBox(width: 12),
                             Text('เลือกหมุดร้านค้าของคุณ'),
                             Spacer(),
-                            Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+                            AppIcon(AppIcons.chevronRightLine, color: Color(0xFF94A3B8)),
                           ],
                         ),
                       ),

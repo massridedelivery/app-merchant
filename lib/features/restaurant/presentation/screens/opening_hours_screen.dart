@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class DaySchedule {
   String day;
@@ -136,7 +138,7 @@ class _OpeningHoursScreenState extends State<OpeningHoursScreen> {
             // 24hr toggle
             Row(
               children: [
-                const Icon(Icons.access_time, size: 16, color: Color(0xFF888888)),
+                const AppIcon(AppIcons.clockLine, size: 16, color: Color(0xFF888888)),
                 const SizedBox(width: 8),
                 Text('24 ชั่วโมง',
                     style: AppTypography.body3.copyWith(color: const Color(0xFF555555))),
@@ -212,7 +214,7 @@ class _OpeningHoursScreenState extends State<OpeningHoursScreen> {
             value: value,
             isExpanded: true,
             underline: const SizedBox.shrink(),
-            icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF666666)),
+            icon: const AppIcon(AppIcons.chevronDownLine, size: 18, color: Color(0xFF666666)),
             style: AppTypography.body2.copyWith(color: const Color(0xFF222222)),
             items: _timeOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
             onChanged: onChanged,

@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
-import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/finance/data/finance_repository.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
-class BankAccountScreen extends StatefulWidget {
+class BankAccountScreen extends ConsumerStatefulWidget {
   const BankAccountScreen({super.key});
 
   @override
-  State<BankAccountScreen> createState() => _BankAccountScreenState();
+  ConsumerState<BankAccountScreen> createState() => _BankAccountScreenState();
 }
 
-class _BankAccountScreenState extends State<BankAccountScreen> {
+class _BankAccountScreenState extends ConsumerState<BankAccountScreen> {
   final double _currentBalance = 15420.50;
   bool _isLoading = false;
 
@@ -60,17 +63,14 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // baseUrl already includes /api/food, so the path must be relative to it.
-      await apiClient.dio.post('/restaurant/withdraw', data: {
-        'amount': amount,
-      });
+      await ref.read(financeRepositoryProvider).requestWithdrawal(amount);
 
       if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: AppColors.semanticGrayNeutralBgWhite,
-          title: const Icon(Icons.check_circle, color: AppColors.success, size: 64),
+          title: const AppIcon(AppIcons.circleCheckFill, color: AppColors.success, size: 64),
           content: Text(
             'ส่งคำขอถอนเงินจำนวน ฿${amount.toStringAsFixed(2)} สำเร็จ\n\nระบบจะโอนเข้าบัญชีของคุณภายใน 1-2 วันทำการ',
             textAlign: TextAlign.center,
@@ -160,7 +160,7 @@ class _BankAccountScreenState extends State<BankAccountScreen> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(color: AppColors.semanticGrayNeutralBgLightGray, borderRadius: BorderRadius.circular(8)),
-                        child: const Icon(Icons.account_balance, color: AppColors.primary),
+                        child: const AppIcon(AppIcons.buildingLine, color: AppColors.primary),
                       ),
                       title: Text('ธนาคารไทยพาณิชย์ (SCB)', style: AppTypography.body2.copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
                       subtitle: Text('***-***-1234\nนาย สมชาย เข็มกลัด', style: AppTypography.body3.copyWith(color: AppColors.semanticGrayNeutralFgMidOnWhite)),

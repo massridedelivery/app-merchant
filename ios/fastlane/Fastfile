@@ -27,9 +27,16 @@ platform :ios do
     build_number_arg = build_number ? " --build-number=#{build_number}" : ""
     sh("cd .. && flutter build ipa --release#{build_number_arg} --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=env/prod.json")
 
+    # Flutter names the IPA after the app, which can differ from the pubspec
+    # name (e.g. "Runner.ipa"). Glob for whatever it produced instead of
+    # hard-coding a filename that a rename would silently break.
+    # Relative to fastlane's working dir (ios/), same base as the build output.
+    ipa_path = Dir.glob("../build/ios/ipa/*.ipa").first
+    UI.user_error!("No .ipa found in build/ios/ipa/ — did `flutter build ipa` succeed?") unless ipa_path
+
     upload_to_testflight(
       api_key: api_key,
-      ipa: "../build/ios/ipa/merchant_app.ipa",
+      ipa: ipa_path,
       skip_waiting_for_build_processing: true,
     )
   end

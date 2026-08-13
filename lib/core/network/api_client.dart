@@ -1,19 +1,44 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mock_interceptor.dart';
 
 class ApiClient {
-  // Server root. Most endpoints live under /api/food (see [baseUrl]), but a few
-  // (e.g. /auth/login) sit at the root — call those with an absolute URL built
-  // from [host] so they aren't prefixed with /api/food.
-  static const String host = 'https://driver-api-dev.nutchaphut.dev';
-  static const String baseUrl = '$host/api/food';
-  static const bool useMock = false; // Toggle this to true to use the mock interceptor
-  
+  /// Bare host the API is served from. The backend exposes three prefixes off
+  /// it (SCRUM-53 §1), so repositories carry the full path:
+  ///
+  /// * REST — `{host}/api/...`, e.g. `/api/food/restaurant/profile`
+  /// * Auth — `{host}/auth/...`, with no `/api` prefix
+  /// * WS   — `{host}/ws`
+  ///
+  /// Injected at build time from `env/<flavor>.json` via
+  /// `--dart-define-from-file`. Must be a **bare host** (no `/api` suffix), or
+  /// the paths above would double up. The localhost default is for a bare
+  /// `flutter run` with no env file.
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8080',
+  );
+
+  /// When true, [MockInterceptor] answers every request with canned data and
+  /// the real host is never contacted. Defaults to true so a bare `flutter run`
+  /// works offline; env files set `USE_MOCK: false` to hit the real backend.
+  static const bool useMock = bool.fromEnvironment(
+    'USE_MOCK',
+    defaultValue: true,
+  );
+
+  static const String _accessTokenKey = 'auth_token';
+  static const String _refreshTokenKey = 'refresh_token';
+
   late final Dio _dio;
-  
+
+  /// Used only to refresh, so a 401 on the main client cannot recurse into
+  /// itself through the retry interceptor.
+  late final Dio _refreshDio;
+
   ApiClient() {
-    _dio = Dio(BaseOptions(
+    final options = BaseOptions(
       baseUrl: baseUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
@@ -21,56 +46,95 @@ class ApiClient {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-    ));
+    );
+    _dio = Dio(options);
+    _refreshDio = Dio(options);
 
     // Add Mock Interceptor if enabled
     if (useMock) {
       _dio.interceptors.add(MockInterceptor());
+      _refreshDio.interceptors.add(MockInterceptor());
     }
 
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        final token = await _getToken();
+        final token = await readToken();
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
         }
         return handler.next(options);
       },
-      onError: (DioException e, handler) {
-        // Handle global errors here (e.g., 401 Unauthorized -> logout)
-        return handler.next(e);
+      onError: (DioException e, handler) async {
+        // A 401 means the access token aged out. Refresh once, replay once —
+        // never more, or an unauthorised call becomes an infinite loop.
+        if (e.response?.statusCode != 401 || _isAuthCall(e.requestOptions)) {
+          return handler.next(e);
+        }
+        if (!await _refreshSession()) return handler.next(e);
+
+        try {
+          final retried = await _dio.fetch(e.requestOptions);
+          return handler.resolve(retried);
+        } on DioException catch (retryError) {
+          return handler.next(retryError);
+        }
       },
     ));
   }
 
   Dio get dio => _dio;
 
-  Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+  bool _isAuthCall(RequestOptions options) => options.path.startsWith('/auth/');
+
+  /// Swaps the stored pair for a fresh one. Returns false when the refresh
+  /// token is gone or itself rejected — the caller should send the user back to
+  /// login.
+  Future<bool> _refreshSession() async {
+    final refreshToken = await readRefreshToken();
+    if (refreshToken == null) return false;
+    try {
+      final response = await _refreshDio
+          .post('/auth/refresh', data: {'refresh_token': refreshToken});
+      final data = response.data as Map<String, dynamic>;
+      final access = data['access_token'];
+      final refresh = data['refresh_token'];
+      if (access is! String || refresh is! String) return false;
+      await saveSession(accessToken: access, refreshToken: refresh);
+      return true;
+    } catch (_) {
+      await clearSession();
+      return false;
+    }
   }
 
-  static Future<void> saveToken(String token) async {
+  Future<String?> readToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
+    return prefs.getString(_accessTokenKey);
   }
 
-  static Future<void> clearToken() async {
+  Future<String?> readRefreshToken() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-    await prefs.remove('refresh_token');
+    return prefs.getString(_refreshTokenKey);
   }
 
-  static Future<void> saveRefreshToken(String token) async {
+  Future<void> saveSession({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('refresh_token', token);
+    await prefs.setString(_accessTokenKey, accessToken);
+    await prefs.setString(_refreshTokenKey, refreshToken);
+    _dio.options.headers['Authorization'] = 'Bearer $accessToken';
   }
 
-  static Future<String?> getRefreshToken() async {
+  Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('refresh_token');
+    await prefs.remove(_accessTokenKey);
+    await prefs.remove(_refreshTokenKey);
+    _dio.options.headers.remove('Authorization');
   }
 }
 
-// Global instance for simple access, later we can use Riverpod provider
-final apiClient = ApiClient();
+/// The app's HTTP client. Override in tests with
+/// `ProviderScope(overrides: [apiClientProvider.overrideWithValue(fake)])`.
+final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());

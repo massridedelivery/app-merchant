@@ -1,5 +1,11 @@
 import 'package:dio/dio.dart';
 
+/// Access token handed out by the mock `/auth/*` routes. Decodes to
+/// `{user_id, role: restaurant, exp: 2030}` so the whole session flow — claims,
+/// role check, restaurant id — works with no server.
+const String mockAccessToken =
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOWYxYzBmNmUtM2IzYS00YTFlLTljMmQtNmE1ZTRiM2MyZDEwIiwicm9sZSI6InJlc3RhdXJhbnQiLCJzaWQiOiJtb2NrLXNlc3Npb24iLCJleHAiOjE4OTM0NTYwMDAsImlhdCI6MTc4NTkxMzYwMH0.mock-signature';
+
 class MockInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
@@ -7,10 +13,25 @@ class MockInterceptor extends Interceptor {
     final method = options.method;
 
     // ─── AUTH ───────────────────────────────────────────────
-    if (path.contains('/auth/login')) {
+    // A structurally real JWT so AuthClaims.tryParse works offline: role
+    // `restaurant`, user_id doubling as the restaurant_id, exp in 2030.
+    if (path.contains('/auth/login') ||
+        path.contains('/auth/register') ||
+        path.contains('/auth/refresh')) {
       return handler.resolve(Response(
         requestOptions: options,
-        data: {'token': 'mock_jwt_token_12345'},
+        data: {
+          'access_token': mockAccessToken,
+          'refresh_token': 'mock-refresh-token',
+          'expires_in': 86400,
+        },
+        statusCode: path.contains('/auth/register') ? 201 : 200,
+      ));
+    }
+    if (path.contains('/auth/logout')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {'message': 'logged out successfully'},
         statusCode: 200,
       ));
     }
@@ -149,6 +170,20 @@ class MockInterceptor extends Interceptor {
           statusCode: 200,
         ));
       }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'updated successfully'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
+        ));
+      }
     }
 
     // ─── MENU ITEMS ─────────────────────────────────────────
@@ -167,6 +202,71 @@ class MockInterceptor extends Interceptor {
             'modifiers': [],
           },
           statusCode: 201,
+        ));
+      }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'item updated successfully'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
+        ));
+      }
+    }
+
+    // ─── MODIFIERS (inside a group, and standalone) ──────────
+    if (path.contains('/modifiers')) {
+      if (method == 'POST') {
+        final data = options.data as Map<String, dynamic>;
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {
+            'id': 'mod_new_${DateTime.now().millisecondsSinceEpoch}',
+            'name': data['name'],
+            'price': data['price'] ?? 0.0,
+            'is_available': true,
+            'sort_order': 1,
+          },
+          statusCode: 201,
+        ));
+      }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'modifier updated'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
+        ));
+      }
+    }
+
+    // ─── ITEM ↔ MODIFIER GROUP LINKS ─────────────────────────
+    if (path.contains('/restaurant/items/') &&
+        path.contains('/modifier-groups')) {
+      if (method == 'POST') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'modifier group linked to item'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
         ));
       }
     }
@@ -195,6 +295,20 @@ class MockInterceptor extends Interceptor {
           statusCode: 201,
         ));
       }
+      if (method == 'PUT') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'modifier group updated'},
+          statusCode: 200,
+        ));
+      }
+      if (method == 'DELETE') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: null,
+          statusCode: 204,
+        ));
+      }
     }
 
     // ─── ORDERS: PENDING ────────────────────────────────────
@@ -216,6 +330,13 @@ class MockInterceptor extends Interceptor {
     }
 
     // ─── ORDER ACTIONS ──────────────────────────────────────
+    if (path.contains('/restaurant/orders/') && path.contains('/ops')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {'message': 'order updated successfully'},
+        statusCode: 200,
+      ));
+    }
     if (path.contains('/restaurant/orders/') && path.contains('/accept')) {
       return handler.resolve(Response(requestOptions: options, data: {'message': 'RESTAURANT_ACCEPTED'}, statusCode: 200));
     }
@@ -268,6 +389,79 @@ class MockInterceptor extends Interceptor {
           'current_spend': 120.50,
           'bid_per_click': 2.5,
           'is_active': true,
+        },
+        statusCode: 200,
+      ));
+    }
+
+    // ─── KYC DOCUMENTS ──────────────────────────────────────
+    if (path.contains('/restaurant/documents')) {
+      if (method == 'POST') {
+        return handler.resolve(Response(
+          requestOptions: options,
+          data: {'message': 'document uploaded successfully'},
+          statusCode: 200,
+        ));
+      }
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: [
+          {
+            'id': 'doc_1',
+            'doc_type': 'business_license',
+            'doc_number': '0105558123456',
+            'image_url': 'restaurant_doc/mock-user/licence.jpg',
+            'status': 'approved',
+            'uploaded_at': '2026-06-10T02:45:11Z',
+            'verified_at': '2026-06-14T09:12:33Z',
+          },
+          {
+            'id': 'doc_2',
+            'doc_type': 'tax_id',
+            'image_url': 'restaurant_doc/mock-user/tax.jpg',
+            'status': 'rejected',
+            'rejection_reason': 'เอกสารเบลอ อ่านไม่ออก',
+            'uploaded_at': '2026-06-11T03:10:00Z',
+          },
+        ],
+        statusCode: 200,
+      ));
+    }
+
+    // ─── MEDIA (3-step upload) ──────────────────────────────
+    if (path.contains('/api/media/upload-url')) {
+      final category = options.queryParameters['category'] ?? 'restaurant';
+      final key =
+          '$category/mock-user/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'upload_url': 'https://storage.mock.local/$key?signature=mock',
+          'file_key': key,
+          'expires_at': DateTime.now()
+              .add(const Duration(minutes: 15))
+              .toIso8601String(),
+          'max_bytes': category == 'restaurant_doc' ? 5242880 : 3145728,
+        },
+        statusCode: 200,
+      ));
+    }
+    if (path.contains('/api/media/confirm')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'file_key': (options.data as Map)['file_key'],
+          'confirmed': true,
+        },
+        statusCode: 200,
+      ));
+    }
+    if (path.contains('/api/media/view')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: {
+          'view_url':
+              'https://storage.mock.local/${options.queryParameters['key']}?signed=mock',
         },
         statusCode: 200,
       ));
@@ -540,7 +734,7 @@ class MockInterceptor extends Interceptor {
     return [
       {
         'id': 'order_hist_001',
-        'status': 'COMPLETED',
+        'status': 'DELIVERED',
         'total_amount': 350.0,
         'food_total': 330.0,
         'delivery_fee': 20.0,
@@ -551,7 +745,7 @@ class MockInterceptor extends Interceptor {
       },
       {
         'id': 'order_hist_002',
-        'status': 'COMPLETED',
+        'status': 'DELIVERED',
         'total_amount': 175.0,
         'food_total': 160.0,
         'delivery_fee': 15.0,

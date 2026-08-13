@@ -1,78 +1,54 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:merchant_app/core/network/api_client.dart';
-import 'package:dio/dio.dart';
-
-class AdCampaign {
-  final String id;
-  final double dailyBudget;
-  final double currentSpend;
-  final double bidPerClick;
-  final bool isActive;
-
-  AdCampaign({
-    required this.id,
-    required this.dailyBudget,
-    required this.currentSpend,
-    required this.bidPerClick,
-    required this.isActive,
-  });
-
-  factory AdCampaign.fromJson(Map<String, dynamic> json) {
-    return AdCampaign(
-      id: json['id'] ?? '',
-      dailyBudget: json['daily_budget']?.toDouble() ?? 0.0,
-      currentSpend: json['current_spend']?.toDouble() ?? 0.0,
-      bidPerClick: json['bid_per_click']?.toDouble() ?? 0.0,
-      isActive: json['is_active'] ?? false,
-    );
-  }
-}
+import 'package:merchant_app/features/ads/data/ad_repository.dart';
+import 'package:merchant_app/features/ads/models/ad_campaign.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
-  AdNotifier() : super(const AsyncValue.loading());
+  AdNotifier(this._repository) : super(const AsyncValue.loading());
+
+  final AdRepository _repository;
 
   Future<void> fetchAd() async {
     state = const AsyncValue.loading();
     try {
-      final response = await apiClient.dio.get('/restaurant/ads');
-      state = AsyncValue.data(AdCampaign.fromJson(response.data));
+      // null means the restaurant has no campaign yet, not a failure.
+      final campaign = await _repository.fetchAd();
+      if (!mounted) return;
+      state = AsyncValue.data(campaign);
     } catch (e, st) {
-      if (e is DioException && e.response?.statusCode == 404) {
-        state = const AsyncValue.data(null); // No ad yet
-      } else {
-        state = AsyncValue.error(e, st);
-      }
+      if (!mounted) return;
+      state = AsyncValue.error(e, st);
     }
   }
 
-  Future<bool> createAd(double dailyBudget, double bidPerClick) async {
+  Future<void> createAd(double dailyBudget, double bidPerClick) async {
     try {
-      await apiClient.dio.post('/restaurant/ads', data: {
-        'daily_budget': dailyBudget,
-        'bid_per_click': bidPerClick,
-      });
+      await _repository.createAd(
+        dailyBudget: dailyBudget,
+        bidPerClick: bidPerClick,
+      );
       fetchAd(); // Reload
-      return true;
     } catch (e) {
-      return false;
+      throw AppFailure('ไม่สามารถสร้างแคมเปญโฆษณาได้', e);
     }
   }
 
-  Future<bool> updateAd(double dailyBudget, double bidPerClick, bool isActive) async {
+  Future<void> updateAd(
+      double dailyBudget, double bidPerClick, bool isActive) async {
     try {
-      await apiClient.dio.put('/restaurant/ads', data: {
-        'daily_budget': dailyBudget,
-        'bid_per_click': bidPerClick,
-        'is_active': isActive,
-      });
+      await _repository.updateAd(
+        dailyBudget: dailyBudget,
+        bidPerClick: bidPerClick,
+        isActive: isActive,
+      );
       fetchAd(); // Reload
-      return true;
     } catch (e) {
-      return false;
+      throw AppFailure('ไม่สามารถแก้ไขแคมเปญโฆษณาได้', e);
     }
   }
 }
 
-final adProvider = StateNotifierProvider<AdNotifier, AsyncValue<AdCampaign?>>((ref) {
-  return AdNotifier()..fetchAd();
+final adProvider =
+    StateNotifierProvider<AdNotifier, AsyncValue<AdCampaign?>>((ref) {
+  return AdNotifier(ref.watch(adRepositoryProvider))..fetchAd();
 });

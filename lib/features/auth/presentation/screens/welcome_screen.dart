@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -55,8 +57,8 @@ class WelcomeScreen extends StatelessWidget {
                             ],
                           ),
                           child: const Center(
-                            child: Icon(
-                              Icons.storefront_rounded,
+                            child: AppIcon(
+                              AppIcons.storeLine,
                               size: 60,
                               color: AppColors.primary,
                             ),

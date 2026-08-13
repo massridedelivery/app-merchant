@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
+import 'package:merchant_app/features/finance/models/finance.dart';
 import 'package:merchant_app/features/finance/providers/finance_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class FinanceScreen extends ConsumerStatefulWidget {
   const FinanceScreen({super.key});
@@ -111,11 +114,12 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           ),
           Row(
             children: [
-              _headerIconBtn(Icons.receipt_long_rounded),
+              _headerIconBtn(const AppIcon(AppIcons.stackPaperLine)),
               const SizedBox(width: 8),
-              _headerIconBtn(Icons.qr_code_scanner_rounded),
+              // No QR scanner equivalent in the SVG icon set yet.
+              _headerIconBtn(const Icon(Icons.qr_code_scanner_rounded)),
               const SizedBox(width: 8),
-              _headerIconBtn(Icons.help_outline_rounded),
+              _headerIconBtn(const AppIcon(AppIcons.circleQuestionLine)),
             ],
           ),
         ],
@@ -123,7 +127,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
     );
   }
 
-  Widget _headerIconBtn(IconData icon) {
+  Widget _headerIconBtn(Widget icon) {
     return InkWell(
       onTap: () {},
       borderRadius: BorderRadius.circular(12),
@@ -135,7 +139,10 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
-        child: Icon(icon, size: 20, color: const Color(0xFF475569)),
+        child: IconTheme(
+          data: const IconThemeData(size: 20, color: Color(0xFF475569)),
+          child: icon,
+        ),
       ),
     );
   }
@@ -205,8 +212,8 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
                   color: Colors.black.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.arrow_forward_ios_rounded,
+                child: const AppIcon(
+                  AppIcons.chevronRightLine,
                   color: AppColors.semanticGrayNeutralBgWhite,
                   size: 12,
                 ),
@@ -302,8 +309,8 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
+                        const AppIcon(
+                          AppIcons.chevronDownLine,
                           size: 16,
                           color: Color(0xFF64748B),
                         ),
@@ -349,8 +356,8 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
                           color: const Color(0xFFF1F5F9),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.calendar_month_rounded,
+                        child: const AppIcon(
+                          AppIcons.calendarLine,
                           size: 18,
                           color: Color(0xFF64748B),
                         ),

@@ -2,7 +2,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/finance/presentation/screens/finance_screen.dart';
@@ -11,6 +13,9 @@ import 'package:merchant_app/features/home/providers/navigation_provider.dart';
 import 'package:merchant_app/features/menu/presentation/screens/menu_screen.dart';
 import 'package:merchant_app/features/orders/presentation/screens/orders_screen.dart';
 import 'package:merchant_app/features/profile/presentation/screens/profile_screen.dart';
+import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/store_onboarding_screen.dart';
+import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -28,21 +33,35 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ProfileScreen(),
   ];
 
+  // Held rather than read in dispose(): reading a provider while the widget is
+  // being torn down is not guaranteed to succeed.
+  late final SocketService _socket;
+
   @override
   void initState() {
     super.initState();
-    socketService.connect(mockMode: false);
+    _socket = ref.read(socketServiceProvider);
+    _socket.connect(mockMode: true);
   }
 
   @override
   void dispose() {
-    socketService.disconnect();
+    _socket.disconnect();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
+    final profileAsync = ref.watch(restaurantProfileProvider);
+
+    // A restaurant still on the row registration created has no real
+    // coordinates, which means customer search cannot see it at all. Nothing
+    // else in the app is worth doing until that is fixed (SCRUM-53 §2).
+    final profile = profileAsync.valueOrNull;
+    if (profile != null && profile.isPlaceholder) {
+      return StoreOnboardingScreen(profile: profile);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.semanticGrayNeutralBgWhite,
@@ -50,17 +69,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         children: [
           // Content
           Positioned.fill(
-            child: IndexedStack(
-              index: currentIndex,
-              children: _pages
-                  .map(
-                    (page) => Padding(
-                      padding: const EdgeInsets.only(bottom: 90),
-                      // Space for floating nav bar
-                      child: page,
-                    ),
-                  )
-                  .toList(),
+            child: Column(
+              children: [
+                if (profile != null && !profile.isVerified)
+                  _buildVerificationBanner(profile),
+                Expanded(
+                  child: IndexedStack(
+                    index: currentIndex,
+                    children: _pages
+                        .map(
+                          (page) => Padding(
+                            padding: const EdgeInsets.only(bottom: 90),
+                            // Space for floating nav bar
+                            child: page,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -70,6 +97,44 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             right: 20,
             bottom: 30,
             child: _buildFloatingPill(currentIndex),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// KYC approval is admin-side and asynchronous, so this informs rather than
+  /// blocks — unlike the coordinates gate, an unverified restaurant can still
+  /// use the app while paperwork is reviewed.
+  Widget _buildVerificationBanner(RestaurantProfile profile) {
+    final rejected = profile.verificationStatus == 'REJECTED';
+    return Container(
+      width: double.infinity,
+      color: rejected
+          ? AppColors.semanticErrorFgHigh.withValues(alpha: 0.1)
+          : const Color(0xFFFEF9C3),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          AppIcon(
+            AppIcons.circleInformationLine,
+            size: 16,
+            color: rejected
+                ? AppColors.semanticErrorFgHigh
+                : const Color(0xFFA16207),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              rejected
+                  ? 'เอกสารยืนยันร้านไม่ผ่าน กรุณาส่งใหม่'
+                  : 'อยู่ระหว่างตรวจสอบเอกสารยืนยันร้าน',
+              style: AppTypography.caption5.copyWith(
+                color: rejected
+                    ? AppColors.semanticErrorFgHigh
+                    : const Color(0xFFA16207),
+              ),
+            ),
           ),
         ],
       ),
@@ -121,36 +186,37 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             children: [
               _buildFloatingNavItem(
                 0,
-                Icons.home_outlined,
-                Icons.home_rounded,
+                AppIcons.houseLine,
+                AppIcons.houseFill,
                 'หน้าแรก',
                 currentIndex,
               ),
               _buildFloatingNavItem(
                 1,
-                Icons.receipt_long_outlined,
-                Icons.receipt_long_rounded,
+                AppIcons.cartLine,
+                AppIcons.cartFill,
                 'คำสั่งซื้อ',
                 currentIndex,
               ),
+              // No filled variant in the icon set for these two.
               _buildFloatingNavItem(
                 2,
-                Icons.restaurant_menu_outlined,
-                Icons.restaurant_menu_rounded,
+                AppIcons.forkSpoonLine,
+                AppIcons.forkSpoonLine,
                 'เมนู',
                 currentIndex,
               ),
               _buildFloatingNavItem(
                 3,
-                Icons.account_balance_wallet_outlined,
-                Icons.account_balance_wallet_rounded,
+                AppIcons.cardLine,
+                AppIcons.cardLine,
                 'การเงิน',
                 currentIndex,
               ),
               _buildFloatingNavItem(
                 4,
-                Icons.person_outline,
-                Icons.person_rounded,
+                AppIcons.circleUserLine,
+                AppIcons.circleUserFill,
                 'บัญชี',
                 currentIndex,
               ),
@@ -163,8 +229,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   Widget _buildFloatingNavItem(
     int index,
-    IconData outlineIcon,
-    IconData filledIcon,
+    String outlineIcon,
+    String filledIcon,
     String label,
     int currentIndex,
   ) {
@@ -203,7 +269,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       ),
                     ],
                   ),
-                  child: Icon(filledIcon, color: Colors.white, size: 24),
+                  child: Center(
+                    child: AppIcon(
+                      filledIcon,
+                      size: 24,
+                      color: Colors.white,
+                      semanticLabel: label,
+                    ),
+                  ),
                 ),
               ),
 
@@ -214,7 +287,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (!isSelected) ...[
-                    Icon(outlineIcon, color: const Color(0xFF64748B), size: 24),
+                    AppIcon(
+                      outlineIcon,
+                      size: 24,
+                      color: const Color(0xFF64748B),
+                      semanticLabel: label,
+                    ),
                     const SizedBox(height: 4),
                     FittedBox(
                       fit: BoxFit.scaleDown,

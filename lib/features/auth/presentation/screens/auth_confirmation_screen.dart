@@ -6,6 +6,8 @@ import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/presentation/widgets/auth_step_indicator.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthConfirmationScreen extends ConsumerStatefulWidget {
   const AuthConfirmationScreen({super.key});
@@ -87,7 +89,7 @@ class _AuthConfirmationScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
         centerTitle: false,
@@ -206,8 +208,8 @@ class _AuthConfirmationScreenState
                       decoration: AppTheme.premiumCardDecoration,
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.card_giftcard,
+                          const AppIcon(
+                            AppIcons.couponLine,
                             color: AppColors.primary,
                             size: 20,
                           ),

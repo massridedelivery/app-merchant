@@ -4,6 +4,8 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/presentation/widgets/auth_step_indicator.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthBusinessTypeScreen extends StatefulWidget {
   const AuthBusinessTypeScreen({super.key});
@@ -23,7 +25,8 @@ class _AuthBusinessTypeScreenState extends State<AuthBusinessTypeScreen> {
     });
   }
 
-  Widget _buildTypeCard(String title, String subtitle, IconData icon) {
+  // [icon] is a Widget so cards can mix [AppIcon] with the Material fallbacks.
+  Widget _buildTypeCard(String title, String subtitle, Widget icon) {
     bool isSelected = _selectedBusinessType == title;
     return GestureDetector(
       onTap: () {
@@ -69,10 +72,13 @@ class _AuthBusinessTypeScreenState extends State<AuthBusinessTypeScreen> {
                     : const Color(0xFFF8FAFC),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: isSelected ? AppColors.primary : const Color(0xFF94A3B8),
-                size: 24,
+              child: IconTheme(
+                data: IconThemeData(
+                  color:
+                      isSelected ? AppColors.primary : const Color(0xFF94A3B8),
+                  size: 24,
+                ),
+                child: icon,
               ),
             ),
             const SizedBox(width: 16),
@@ -98,8 +104,8 @@ class _AuthBusinessTypeScreenState extends State<AuthBusinessTypeScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(
-                Icons.check_circle,
+              const AppIcon(
+                AppIcons.circleCheckFill,
                 color: AppColors.primary,
                 size: 24,
               ),
@@ -117,7 +123,7 @@ class _AuthBusinessTypeScreenState extends State<AuthBusinessTypeScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
         centerTitle: false,
@@ -150,17 +156,18 @@ class _AuthBusinessTypeScreenState extends State<AuthBusinessTypeScreen> {
               _buildTypeCard(
                 'ธุรกิจส่วนตัว',
                 'เจ้าของคนเดียว ไม่ได้จดทะเบียนนิติบุคคล',
-                Icons.person_outline,
+                const AppIcon(AppIcons.circleUserLine),
               ),
               _buildTypeCard(
                 'ห้างหุ้นส่วนจำกัด',
                 'จดทะเบียนในรูปแบบ หจก.',
-                Icons.group_outlined,
+                // No multi-person equivalent in the SVG icon set yet.
+                const Icon(Icons.group_outlined),
               ),
               _buildTypeCard(
                 'บริษัทจำกัด',
                 'จดทะเบียนในรูปแบบบริษัท (บจก.)',
-                Icons.business_outlined,
+                const AppIcon(AppIcons.officeLine),
               ),
 
               const SizedBox(height: 24),
@@ -181,8 +188,8 @@ class _AuthBusinessTypeScreenState extends State<AuthBusinessTypeScreen> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const Icon(
-                          Icons.edit_outlined,
+                        const AppIcon(
+                          AppIcons.pencilFill,
                           size: 18,
                           color: AppColors.primary,
                         ),
@@ -191,8 +198,8 @@ class _AuthBusinessTypeScreenState extends State<AuthBusinessTypeScreen> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.phone_outlined,
+                        const AppIcon(
+                          AppIcons.callCenterLine,
                           size: 16,
                           color: Color(0xFF64748B),
                         ),

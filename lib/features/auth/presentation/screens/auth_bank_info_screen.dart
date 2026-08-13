@@ -4,6 +4,8 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/presentation/widgets/auth_step_indicator.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthBankInfoScreen extends StatefulWidget {
   const AuthBankInfoScreen({super.key});
@@ -100,8 +102,8 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.account_balance,
+              child: const AppIcon(
+                AppIcons.buildingLine,
                 size: 18,
                 color: Color(0xFF64748B),
               ),
@@ -116,8 +118,8 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
               ),
             ),
             if (isSelected)
-              const Icon(
-                Icons.check_circle,
+              const AppIcon(
+                AppIcons.circleCheckFill,
                 color: AppColors.primary,
                 size: 20,
               ),
@@ -135,7 +137,7 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
         centerTitle: false,
@@ -177,8 +179,8 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(
-                                Icons.account_balance_outlined,
+                              const AppIcon(
+                                AppIcons.buildingLine,
                                 color: AppColors.primary,
                                 size: 20,
                               ),
@@ -280,8 +282,8 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
                             ),
                             child: Column(
                               children: [
-                                const Icon(
-                                  Icons.cloud_upload_outlined,
+                                const AppIcon(
+                                  AppIcons.photoLine,
                                   color: AppColors.primary,
                                   size: 32,
                                 ),
@@ -306,8 +308,8 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(
-                                Icons.info_outline,
+                              const AppIcon(
+                                AppIcons.circleInformationLine,
                                 size: 16,
                                 color: AppColors.primary,
                               ),
@@ -344,8 +346,8 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const Icon(
-                                Icons.edit_outlined,
+                              const AppIcon(
+                                AppIcons.pencilFill,
                                 size: 18,
                                 color: AppColors.primary,
                               ),

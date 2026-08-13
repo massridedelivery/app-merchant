@@ -140,6 +140,19 @@ class MyApp extends ConsumerWidget {
       title: 'Mass Merchant',
       theme: AppTheme.lightTheme,
       routerConfig: router,
+      // Global "tap empty space to dismiss the keyboard". Wrapping every routed
+      // page here means individual screens don't each need their own handler.
+      // translucent → taps on blank areas dismiss; taps on fields/buttons still
+      // reach them (they win the gesture arena).
+      builder: (context, child) {
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          // Unfocus whatever field is active (no-op when nothing is focused),
+          // which drops the keyboard.
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
     );
   }
 }

@@ -4,9 +4,14 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/home/presentation/widgets/status_bottom_sheet.dart';
-import 'package:merchant_app/features/home/providers/restaurant_provider.dart';
+import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
+import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
+import 'package:merchant_app/features/orders/presentation/widgets/order_ops_sheet.dart';
 import 'package:merchant_app/features/orders/providers/order_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
+import 'package:merchant_app/core/errors/failure_snack_bar.dart';
 
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
@@ -157,9 +162,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                     backgroundColor: Colors.transparent,
                     builder: (_) => StatusBottomSheet(
                       currentStatus: profile.status,
-                      onStatusChanged: (s) => ref
-                          .read(restaurantProfileProvider.notifier)
-                          .setStatus(s),
+                      onStatusChanged: (s) => runGuarded(
+                        context,
+                        () => ref
+                            .read(restaurantProfileProvider.notifier)
+                            .setStatus(s),
+                      ),
                     ),
                   );
                 },
@@ -219,8 +227,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: const Icon(
-                  Icons.more_horiz,
+                child: const AppIcon(
+                  AppIcons.threeDotsHorizontal,
                   size: 20,
                   color: Color(0xFF475569),
                 ),
@@ -268,8 +276,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.receipt_long_outlined,
+            child: const AppIcon(
+              AppIcons.stackPaperLine,
               size: 48,
               color: AppColors.primary,
             ),
@@ -367,7 +375,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             ],
           ),
         ),
-        const Icon(Icons.arrow_forward_ios, size: 12, color: Color(0xFF94A3B8)),
+        const AppIcon(AppIcons.chevronRightLine, size: 12, color: Color(0xFF94A3B8)),
       ],
     );
   }
@@ -407,7 +415,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
   }
 
   Widget _buildOrderCard(Order order) {
-    final isPending = order.status == 'PLACED';
+    final isPending = order.status == OrderStatus.placed;
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -447,7 +455,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.tag, size: 18, color: AppColors.primary),
+                    const AppIcon(AppIcons.hashtag, size: 18, color: AppColors.primary),
                     const SizedBox(width: 4),
                     Text(
                       order.shortId,
@@ -508,7 +516,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                                 if (item.selectedModifiers.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
-                                    item.selectedModifiers.join(', '),
+                                    item.selectedModifiers.map((m) => m.name).join(', '),
                                     style: AppTypography.caption5.copyWith(
                                       color: const Color(0xFF64748B),
                                     ),
@@ -580,6 +588,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             ),
           ),
 
+          // ─── Kitchen adjustments ───────────────────────────
+          if (_canAdjustOps(order.status))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+              child: _buildOpsRow(order),
+            ),
+
           // ─── Action Buttons ────────────────────────────────
           if (_shouldShowActions(order.status))
             Padding(
@@ -612,39 +627,57 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
 
   Map<String, dynamic> _statusInfo(String status) {
     switch (status) {
-      case 'PLACED':
+      case OrderStatus.placed:
         return {
           'label': 'ได้รับออเดอร์',
           'bg': AppColors.primary.withOpacity(0.1),
           'text': AppColors.primary,
         };
-      case 'RESTAURANT_ACCEPTED':
+      case OrderStatus.restaurantAccepted:
         return {
           'label': 'รับแล้ว',
           'bg': const Color(0xFFE0F2FE),
           'text': const Color(0xFF0284C7),
         };
-      case 'PREPARING':
+      case OrderStatus.preparing:
         return {
           'label': 'กำลังเตรียม',
           'bg': const Color(0xFFF3E8FF),
           'text': const Color(0xFF7E22CE),
         };
-      case 'READY_FOR_PICKUP':
+      case OrderStatus.readyForPickup:
         return {
           'label': 'พร้อมส่ง',
           'bg': const Color(0xFFDCFCE7),
           'text': const Color(0xFF166534),
         };
-      case 'DELIVERY':
+      case OrderStatus.driverAssigned:
+        return {
+          'label': 'รอไรเดอร์รับ',
+          'bg': const Color(0xFFFEF9C3),
+          'text': const Color(0xFFA16207),
+        };
+      case OrderStatus.driverPickedUp:
         return {
           'label': 'กำลังส่ง',
           'bg': const Color(0xFFFEF9C3),
           'text': const Color(0xFFA16207),
         };
-      case 'COMPLETED':
+      case OrderStatus.delivered:
         return {
           'label': 'ส่งเรียบร้อย',
+          'bg': const Color(0xFFF1F5F9),
+          'text': const Color(0xFF475569),
+        };
+      case OrderStatus.restaurantRejected:
+        return {
+          'label': 'ปฏิเสธแล้ว',
+          'bg': const Color(0xFFF1F5F9),
+          'text': const Color(0xFF475569),
+        };
+      case OrderStatus.cancelled:
+        return {
+          'label': 'ยกเลิกแล้ว',
           'bg': const Color(0xFFF1F5F9),
           'text': const Color(0xFF475569),
         };
@@ -657,18 +690,74 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     }
   }
 
+  /// Prep time and out-of-stock only mean something while the kitchen still
+  /// owns the order — not once a rider has it.
+  bool _canAdjustOps(String status) =>
+      status == OrderStatus.restaurantAccepted ||
+      status == OrderStatus.preparing;
+
+  Widget _buildOpsRow(Order order) {
+    final adjusted = order.prepTimeAdjustmentMin != 0;
+    final oosCount = order.oosItemIds.length;
+
+    return Row(
+      children: [
+        if (adjusted || oosCount > 0)
+          Expanded(
+            child: Text(
+              [
+                if (adjusted)
+                  '${order.prepTimeAdjustmentMin > 0 ? '+' : ''}'
+                      '${order.prepTimeAdjustmentMin} นาที',
+                if (oosCount > 0) 'ของหมด $oosCount รายการ',
+              ].join(' · '),
+              style: AppTypography.caption5.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        else
+          const Spacer(),
+        TextButton.icon(
+          onPressed: () => showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.white,
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            builder: (_) => OrderOpsSheet(order: order),
+          ),
+          icon: const AppIcon(
+            AppIcons.clockLine,
+            size: 16,
+            color: Color(0xFF64748B),
+          ),
+          label: Text(
+            'ปรับเวลา / ของหมด',
+            style: AppTypography.label3.copyWith(
+              color: const Color(0xFF64748B),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   bool _shouldShowActions(String status) =>
-      ['PLACED', 'RESTAURANT_ACCEPTED', 'PREPARING'].contains(status);
+      OrderStatus.inKitchen.contains(status);
 
   Widget _buildActionButtons(Order order) {
     final notifier = ref.read(orderProvider.notifier);
 
-    if (order.status == 'PLACED') {
+    if (order.status == OrderStatus.placed) {
       return Row(
         children: [
           Expanded(
             child: OutlinedButton(
-              onPressed: () => notifier.rejectOrder(order.id),
+              onPressed: () => runGuarded(
+                  context, () => notifier.rejectOrder(order.id)),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF64748B),
                 side: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -687,7 +776,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           Expanded(
             flex: 2,
             child: ElevatedButton(
-              onPressed: () => notifier.acceptOrder(order.id),
+              onPressed: () => runGuarded(
+                  context, () => notifier.acceptOrder(order.id)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 shape: RoundedRectangleBorder(
@@ -707,11 +797,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           ),
         ],
       );
-    } else if (order.status == 'RESTAURANT_ACCEPTED') {
+    } else if (order.status == OrderStatus.restaurantAccepted) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => notifier.markPreparing(order.id),
+          onPressed: () => runGuarded(
+                  context, () => notifier.markPreparing(order.id)),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             shape: RoundedRectangleBorder(
@@ -726,11 +817,12 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
           ),
         ),
       );
-    } else if (order.status == 'PREPARING') {
+    } else if (order.status == OrderStatus.preparing) {
       return SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => notifier.markReady(order.id),
+          onPressed: () => runGuarded(
+                  context, () => notifier.markReady(order.id)),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF22C55E),
             // Keep green for 'ready' as it's a success state

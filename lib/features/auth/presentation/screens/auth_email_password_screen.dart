@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:merchant_app/core/errors/failure_snack_bar.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class AuthEmailPasswordScreen extends ConsumerStatefulWidget {
   final String flow;
@@ -55,7 +58,7 @@ class _AuthEmailPasswordScreenState
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
         title: Text(
@@ -69,7 +72,11 @@ class _AuthEmailPasswordScreenState
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -147,10 +154,10 @@ class _AuthEmailPasswordScreenState
                           borderSide: BorderSide.none,
                         ),
                         suffixIcon: IconButton(
-                          icon: Icon(
+                          icon: AppIcon(
                             _obscurePassword
-                                ? Icons.visibility_off_outlined
-                                : Icons.visibility_outlined,
+                                ? AppIcons.closedEyeLine
+                                : AppIcons.openedEyeFill,
                             color: AppColors.semanticGrayNeutralFgLowOnWhite,
                             size: 20,
                           ),
@@ -191,20 +198,17 @@ class _AuthEmailPasswordScreenState
                           if (isRegister) {
                             context.push('/register/business_info');
                           } else {
-                            final ok = await ref
-                                .read(authProvider.notifier)
-                                .login(
-                                  _emailController.text.trim(),
-                                  _passwordController.text,
-                                );
+                            final ok = await runGuarded(
+                              context,
+                              () => ref
+                                  .read(authProvider.notifier)
+                                  .login(
+                                    _emailController.text.trim(),
+                                    _passwordController.text,
+                                  ),
+                            );
                             if (ok && context.mounted) {
                               context.go('/');
-                            } else if (context.mounted) {
-                              final err =
-                                  ref.read(authProvider).error ?? 'เข้าสู่ระบบไม่สำเร็จ';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(err)),
-                              );
                             }
                           }
                         }

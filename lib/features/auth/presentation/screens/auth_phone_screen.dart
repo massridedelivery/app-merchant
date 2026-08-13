@@ -1,23 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/presentation/widgets/auth_step_indicator.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
+import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/widgets/app_icon.dart';
 
-class AuthPhoneScreen extends StatefulWidget {
+class AuthPhoneScreen extends ConsumerStatefulWidget {
   final String flow;
 
   const AuthPhoneScreen({super.key, this.flow = 'login'});
 
   @override
-  State<AuthPhoneScreen> createState() => _AuthPhoneScreenState();
+  ConsumerState<AuthPhoneScreen> createState() => _AuthPhoneScreenState();
 }
 
-class _AuthPhoneScreenState extends State<AuthPhoneScreen> {
+class _AuthPhoneScreenState extends ConsumerState<AuthPhoneScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isInputValid = false;
+  bool _sending = false;
 
   @override
   void initState() {
@@ -45,7 +50,7 @@ class _AuthPhoneScreenState extends State<AuthPhoneScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          icon: const AppIcon(AppIcons.chevronLeftLine, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
@@ -150,7 +155,7 @@ class _AuthPhoneScreenState extends State<AuthPhoneScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isInputValid ? _requestOtp : null,
+                  onPressed: (_isInputValid && !_sending) ? _requestOtp : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     disabledBackgroundColor: const Color(0xFFCBD5E1),
@@ -161,13 +166,22 @@ class _AuthPhoneScreenState extends State<AuthPhoneScreen> {
                     elevation: _isInputValid ? 8 : 0,
                     shadowColor: AppColors.primary.withOpacity(0.4),
                   ),
-                  child: Text(
-                    'รับรหัส OTP',
-                    style: AppTypography.label1.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: _sending
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          'รับรหัส OTP',
+                          style: AppTypography.label1.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
 
@@ -251,13 +265,28 @@ class _AuthPhoneScreenState extends State<AuthPhoneScreen> {
     );
   }
 
-  void _requestOtp() {
-    if (_isInputValid) {
-      if (widget.flow == 'login') {
-        context.push('/login/otp');
-      } else {
-        context.push('/register/otp');
+  Future<void> _requestOtp() async {
+    if (!_isInputValid || _sending) return;
+    setState(() => _sending = true);
+    final phone = _phoneController.text;
+    final isLogin = widget.flow == 'login';
+    try {
+      final result = await ref.read(authProvider.notifier).requestOtp(phone);
+      ref.read(otpFlowProvider.notifier).state = OtpFlow(
+        phone: phone,
+        refId: result.refId,
+        isRegistered: result.isRegistered,
+        isLogin: isLogin,
+      );
+      if (!mounted) return;
+      context.push(isLogin ? '/login/otp' : '/register/otp');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
       }
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 }

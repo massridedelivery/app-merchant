@@ -1,264 +1,181 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
+import 'package:merchant_app/features/menu/data/menu_repository.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
-
-// ─── Modifier Group Models ─────────────────────────────────────────────────
-
-class ModifierItem {
-  final String id;
-  final String name;
-  final String nameTh;
-  final double price;
-  final bool isAvailable;
-
-  ModifierItem({
-    required this.id,
-    required this.name,
-    this.nameTh = '',
-    required this.price,
-    required this.isAvailable,
-  });
-
-  factory ModifierItem.fromJson(Map<String, dynamic> json) {
-    return ModifierItem(
-      id: json['id'] ?? '',
-      name: json['name'] ?? json['name_th'] ?? '',
-      nameTh: json['name_th'] ?? '',
-      price: (json['price'] ?? 0.0).toDouble(),
-      isAvailable: json['is_available'] ?? true,
-    );
-  }
-}
-
-class ModifierGroup {
-  final String id;
-  final String name;
-  final String nameTh;
-  final int minSelect;
-  final int maxSelect;
-  final bool isActive;
-  final int itemCount;
-  final List<ModifierItem> modifiers;
-
-  ModifierGroup({
-    required this.id,
-    required this.name,
-    this.nameTh = '',
-    required this.minSelect,
-    required this.maxSelect,
-    required this.isActive,
-    required this.itemCount,
-    required this.modifiers,
-  });
-
-  factory ModifierGroup.fromJson(Map<String, dynamic> json) {
-    final mods = (json['modifiers'] as List? ?? [])
-        .map((m) => ModifierItem.fromJson(m as Map<String, dynamic>))
-        .toList();
-    return ModifierGroup(
-      id: json['id'] ?? '',
-      name: json['name'] ?? json['name_th'] ?? '',
-      nameTh: json['name_th'] ?? '',
-      minSelect: json['min_select'] ?? 0,
-      maxSelect: json['max_select'] ?? 1,
-      isActive: json['is_active'] ?? true,
-      itemCount: json['item_count'] ?? mods.length,
-      modifiers: mods,
-    );
-  }
-}
+import 'package:merchant_app/core/errors/app_failure.dart';
 
 // ─── Menu Notifier ─────────────────────────────────────────────────────────
-//
-// All CRUD endpoints are under /api/food/restaurant/menu/* (see
-// docs/MERCHANT_API_INTEGRATION.md §5.2). The displayable menu (categories +
-// their items) is read from the customer surface
-// GET /customer/restaurants/{id}/menu, so we first resolve the restaurant's own
-// id from its profile instead of hard-coding it.
 
 class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
-  MenuNotifier() : super(const AsyncValue.loading()) {
-    fetchMenu();
+  MenuNotifier(this._repository, this._restaurantId)
+      : super(const AsyncValue.loading()) {
+    if (_restaurantId != null) fetchMenu(_restaurantId);
   }
 
-  String? _restaurantId;
+  final MenuRepository _repository;
 
-  Future<String?> _resolveRestaurantId() async {
-    if (_restaurantId != null) return _restaurantId;
-    try {
-      final res = await apiClient.dio.get('/restaurant/profile');
-      _restaurantId = res.data['user_id'] as String?;
-    } catch (_) {
-      _restaurantId = null;
-    }
-    return _restaurantId;
-  }
+  /// The merchant's own `user_id` — the menu endpoint takes it in the path.
+  /// Null before a session is loaded, in which case nothing is fetched.
+  final String? _restaurantId;
 
-  Future<void> fetchMenu({String? restaurantId}) async {
+  List<MenuCategory> get _categories => state.value ?? const [];
+
+  Future<void> fetchMenu(String restaurantId) async {
     state = const AsyncValue.loading();
     try {
-      final id = restaurantId ?? await _resolveRestaurantId();
-      if (id == null) {
-        state = AsyncValue.error('ไม่พบร้าน', StackTrace.current);
-        return;
-      }
-      final response =
-          await apiClient.dio.get('/customer/restaurants/$id/menu');
-      final categories = (response.data['categories'] as List? ?? [])
-          .map((json) => MenuCategory.fromJson(json as Map<String, dynamic>))
-          .toList();
+      final categories = await _repository.fetchMenu(restaurantId);
+      if (!mounted) return;
       state = AsyncValue.data(categories);
     } catch (e, st) {
+      if (!mounted) return;
       state = AsyncValue.error(e, st);
     }
   }
 
-  // ── Categories ──────────────────────────────────────────────────────────
+  // ─── Categories ──────────────────────────────────────────────────────────
 
   Future<void> addCategory(String name) async {
     try {
-      final response = await apiClient.dio.post(
-        '/restaurant/menu/categories',
-        data: {
-          'name': name,
-          'name_th': name,
-          'sort_order': (state.value?.length ?? 0) + 1,
-        },
+      final newCategory = await _repository.createCategory(
+        name: name,
+        sortOrder: _categories.length + 1,
       );
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final newCategory =
-            MenuCategory.fromJson(response.data as Map<String, dynamic>);
-        state = AsyncValue.data([...(state.value ?? []), newCategory]);
-      }
+      if (newCategory == null || !mounted) return;
+      state = AsyncValue.data([..._categories, newCategory]);
     } catch (e) {
-      throw Exception('ไม่สามารถเพิ่มหมวดหมู่ได้');
+      throw AppFailure('ไม่สามารถเพิ่มหมวดหมู่ได้', e);
     }
   }
 
-  Future<void> updateCategory(
-    String id, {
-    String? name,
+  Future<void> updateCategory({
+    required String id,
+    required String name,
     int? sortOrder,
     bool? isActive,
   }) async {
+    final current = _categories.firstWhere((c) => c.id == id);
+    final updated = current.copyWith(
+      name: name,
+      sortOrder: sortOrder,
+      isActive: isActive,
+    );
     try {
-      await apiClient.dio.put('/restaurant/menu/categories/$id', data: {
-        if (name != null) ...{'name': name, 'name_th': name},
-        if (sortOrder != null) 'sort_order': sortOrder,
-        if (isActive != null) 'is_active': isActive,
-      });
-      final updated = (state.value ?? [])
-          .map((c) => c.id == id
-              ? c.copyWith(name: name, sortOrder: sortOrder, isActive: isActive)
-              : c)
-          .toList();
-      state = AsyncValue.data(updated);
+      await _repository.updateCategory(
+        id: id,
+        name: updated.name,
+        sortOrder: updated.sortOrder,
+        isActive: updated.isActive,
+      );
+      if (!mounted) return;
+      // The endpoint answers with a message, so the local copy is the new truth.
+      state = AsyncValue.data(
+        [for (final c in _categories) c.id == id ? updated : c],
+      );
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขหมวดหมู่ได้');
+      throw AppFailure('ไม่สามารถแก้ไขหมวดหมู่ได้', e);
     }
   }
 
   Future<void> deleteCategory(String id) async {
     try {
-      await apiClient.dio.delete('/restaurant/menu/categories/$id');
+      await _repository.deleteCategory(id);
+      if (!mounted) return;
       state = AsyncValue.data(
-          (state.value ?? []).where((c) => c.id != id).toList());
+        _categories.where((c) => c.id != id).toList(),
+      );
     } catch (e) {
-      throw Exception('ไม่สามารถลบหมวดหมู่ได้');
+      throw AppFailure('ไม่สามารถลบหมวดหมู่ได้', e);
     }
   }
 
-  // ── Items ───────────────────────────────────────────────────────────────
+  // ─── Items ───────────────────────────────────────────────────────────────
 
   Future<void> addItem({
     required String categoryId,
     required String name,
     required String description,
     required double price,
-    String? imageUrl,
-    double? originalPrice,
   }) async {
     try {
-      final response = await apiClient.dio.post(
-        '/restaurant/menu/items',
-        data: {
-          'category_id': categoryId,
-          'name': name,
-          'name_th': name,
-          'description': description,
-          'description_th': description,
-          'price': price,
-          if (originalPrice != null) 'original_price': originalPrice,
-          if (imageUrl != null) 'image_url': imageUrl,
-        },
-      );
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        final newItem = MenuItem.fromJson(response.data as Map<String, dynamic>);
-        _replaceInCategory(categoryId, (items) => [...items, newItem]);
-      }
-    } catch (e) {
-      throw Exception('ไม่สามารถเพิ่มเมนูได้');
-    }
-  }
-
-  Future<void> updateItem(
-    MenuItem item, {
-    String? name,
-    String? description,
-    double? price,
-    double? originalPrice,
-    String? imageUrl,
-    bool? isAvailable,
-  }) async {
-    try {
-      await apiClient.dio.put('/restaurant/menu/items/${item.id}', data: {
-        'category_id': item.categoryId,
-        if (name != null) ...{'name': name, 'name_th': name},
-        if (description != null)
-          ...{'description': description, 'description_th': description},
-        if (price != null) 'price': price,
-        if (originalPrice != null) 'original_price': originalPrice,
-        if (imageUrl != null) 'image_url': imageUrl,
-        if (isAvailable != null) 'is_available': isAvailable,
-      });
-      final updatedItem = item.copyWith(
+      final newItem = await _repository.createItem(
+        categoryId: categoryId,
         name: name,
         description: description,
         price: price,
-        originalPrice: originalPrice,
-        imageUrl: imageUrl,
+      );
+      if (newItem == null || !mounted) return;
+      state = AsyncValue.data([
+        for (final c in _categories)
+          c.id == categoryId ? c.copyWith(items: [...c.items, newItem]) : c,
+      ]);
+    } catch (e) {
+      throw AppFailure('ไม่สามารถเพิ่มเมนูได้', e);
+    }
+  }
+
+  Future<void> updateItem({
+    required String id,
+    required String categoryId,
+    required String name,
+    required String description,
+    required double price,
+    required bool isAvailable,
+  }) async {
+    final updated = _findItem(id)?.copyWith(
+      categoryId: categoryId,
+      name: name,
+      description: description,
+      price: price,
+      isAvailable: isAvailable,
+    );
+    if (updated == null) return;
+
+    try {
+      await _repository.updateItem(
+        id: id,
+        categoryId: categoryId,
+        name: name,
+        description: description,
+        price: price,
         isAvailable: isAvailable,
       );
-      _replaceInCategory(item.categoryId,
-          (items) => items.map((i) => i.id == item.id ? updatedItem : i).toList());
+      if (!mounted) return;
+      // Drop it everywhere first, then re-add — the edit may have moved the
+      // item to a different category.
+      state = AsyncValue.data([
+        for (final c in _categories)
+          c.copyWith(
+            items: [
+              ...c.items.where((i) => i.id != id),
+              if (c.id == categoryId) updated,
+            ],
+          ),
+      ]);
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขเมนูได้');
+      throw AppFailure('ไม่สามารถแก้ไขเมนูได้', e);
     }
   }
 
-  /// Quick out-of-stock / back-in-stock toggle.
-  Future<void> toggleItemAvailability(MenuItem item) =>
-      updateItem(item, isAvailable: !item.isAvailable);
-
-  Future<void> deleteItem(String categoryId, String itemId) async {
+  Future<void> deleteItem(String id) async {
     try {
-      await apiClient.dio.delete('/restaurant/menu/items/$itemId');
-      _replaceInCategory(
-          categoryId, (items) => items.where((i) => i.id != itemId).toList());
+      await _repository.deleteItem(id);
+      if (!mounted) return;
+      state = AsyncValue.data([
+        for (final c in _categories)
+          c.copyWith(items: c.items.where((i) => i.id != id).toList()),
+      ]);
     } catch (e) {
-      throw Exception('ไม่สามารถลบเมนูได้');
+      throw AppFailure('ไม่สามารถลบเมนูได้', e);
     }
   }
 
-  void _replaceInCategory(
-      String categoryId, List<MenuItem> Function(List<MenuItem>) transform) {
-    final updated = (state.value ?? []).map((cat) {
-      if (cat.id == categoryId) {
-        return cat.copyWith(items: transform(cat.items));
+  MenuItem? _findItem(String id) {
+    for (final category in _categories) {
+      for (final item in category.items) {
+        if (item.id == id) return item;
       }
-      return cat;
-    }).toList();
-    state = AsyncValue.data(updated);
+    }
+    return null;
   }
 }
 
@@ -266,150 +183,216 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
 
 class ModifierGroupNotifier
     extends StateNotifier<AsyncValue<List<ModifierGroup>>> {
-  ModifierGroupNotifier() : super(const AsyncValue.loading()) {
-    fetch();
+  ModifierGroupNotifier(this._repository, this._restaurantId)
+      : super(const AsyncValue.loading()) {
+    if (_restaurantId != null) fetch();
   }
 
+  final MenuRepository _repository;
+  final String? _restaurantId;
+
+  List<ModifierGroup> get _groups => state.value ?? const [];
+
   Future<void> fetch() async {
+    final restaurantId = _restaurantId;
+    if (restaurantId == null) return;
     try {
-      // NOTE: backend currently exposes only POST/PUT/DELETE for
-      // modifier-groups — there is no GET list endpoint yet (see
-      // docs/BACKEND_GAPS.md §5). This will 404 until backend adds it; we keep
-      // the local list authoritative after each mutation.
-      final response = await apiClient.dio.get('/restaurant/modifier-groups');
-      final groups = (response.data as List)
-          .map((j) => ModifierGroup.fromJson(j as Map<String, dynamic>))
-          .toList();
+      final groups = await _repository.fetchModifierGroups(restaurantId);
+      if (!mounted) return;
       state = AsyncValue.data(groups);
     } catch (e, st) {
-      // Degrade to an empty (editable) list rather than a hard error so the
-      // create flow still works before the GET endpoint exists.
-      if (!state.hasValue) state = AsyncValue.error(e, st);
+      if (!mounted) return;
+      state = AsyncValue.error(e, st);
     }
   }
 
-  Future<ModifierGroup?> createGroup({
+  // ─── Groups ──────────────────────────────────────────────────────────────
+
+  Future<void> addGroup({
     required String name,
     int minSelect = 0,
     int maxSelect = 1,
   }) async {
     try {
-      final res = await apiClient.dio.post('/restaurant/modifier-groups', data: {
-        'name': name,
-        'name_th': name,
-        'min_select': minSelect,
-        'max_select': maxSelect,
-      });
-      final group = ModifierGroup.fromJson(res.data as Map<String, dynamic>);
-      state = AsyncValue.data([...(state.value ?? []), group]);
-      return group;
+      final group = await _repository.createModifierGroup(
+        name: name,
+        minSelect: minSelect,
+        maxSelect: maxSelect,
+      );
+      if (group == null || !mounted) return;
+      state = AsyncValue.data([..._groups, group]);
     } catch (e) {
-      throw Exception('ไม่สามารถสร้างกลุ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถเพิ่มกลุ่มตัวเลือกได้', e);
     }
   }
 
-  Future<void> updateGroup(
-    String id, {
-    String? name,
+  Future<void> updateGroup({
+    required String id,
+    required String name,
     int? minSelect,
     int? maxSelect,
     bool? isActive,
   }) async {
+    final updated = _groups.firstWhere((g) => g.id == id).copyWith(
+          name: name,
+          minSelect: minSelect,
+          maxSelect: maxSelect,
+          isActive: isActive,
+        );
     try {
-      await apiClient.dio.put('/restaurant/modifier-groups/$id', data: {
-        if (name != null) ...{'name': name, 'name_th': name},
-        if (minSelect != null) 'min_select': minSelect,
-        if (maxSelect != null) 'max_select': maxSelect,
-        if (isActive != null) 'is_active': isActive,
-      });
-      await fetch();
+      await _repository.updateModifierGroup(
+        id: id,
+        name: updated.name,
+        minSelect: updated.minSelect,
+        maxSelect: updated.maxSelect,
+        isActive: updated.isActive,
+      );
+      if (!mounted) return;
+      state = AsyncValue.data(
+        [for (final g in _groups) g.id == id ? updated : g],
+      );
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขกลุ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถแก้ไขกลุ่มตัวเลือกได้', e);
     }
   }
 
   Future<void> deleteGroup(String id) async {
     try {
-      await apiClient.dio.delete('/restaurant/modifier-groups/$id');
-      state = AsyncValue.data(
-          (state.value ?? []).where((g) => g.id != id).toList());
+      await _repository.deleteModifierGroup(id);
+      if (!mounted) return;
+      state = AsyncValue.data(_groups.where((g) => g.id != id).toList());
     } catch (e) {
-      throw Exception('ไม่สามารถลบกลุ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถลบกลุ่มตัวเลือกได้', e);
     }
   }
 
-  Future<void> addModifier(
-    String groupId, {
+  // ─── Modifiers inside a group ────────────────────────────────────────────
+
+  Future<void> addModifier({
+    required String groupId,
     required String name,
     required double price,
   }) async {
     try {
-      await apiClient.dio
-          .post('/restaurant/modifier-groups/$groupId/modifiers', data: {
-        'name': name,
-        'name_th': name,
-        'price': price,
-      });
-      await fetch();
+      final modifier = await _repository.createModifier(
+        groupId: groupId,
+        name: name,
+        price: price,
+      );
+      if (modifier == null || !mounted) return;
+      state = AsyncValue.data(_mapGroup(
+        groupId,
+        (g) => g.copyWith(modifiers: [...g.modifiers, modifier]),
+      ));
     } catch (e) {
-      throw Exception('ไม่สามารถเพิ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถเพิ่มตัวเลือกได้', e);
     }
   }
 
-  Future<void> updateModifier(
-    String id, {
-    String? name,
-    double? price,
-    bool? isAvailable,
+  Future<void> updateModifier({
+    required String groupId,
+    required String modifierId,
+    required String name,
+    required double price,
+    required bool isAvailable,
   }) async {
     try {
-      await apiClient.dio.put('/restaurant/modifiers/$id', data: {
-        if (name != null) ...{'name': name, 'name_th': name},
-        if (price != null) 'price': price,
-        if (isAvailable != null) 'is_available': isAvailable,
-      });
-      await fetch();
+      await _repository.updateModifier(
+        id: modifierId,
+        name: name,
+        price: price,
+        isAvailable: isAvailable,
+      );
+      if (!mounted) return;
+      state = AsyncValue.data(_mapGroup(
+        groupId,
+        (g) => g.copyWith(modifiers: [
+          for (final m in g.modifiers)
+            m.id == modifierId
+                ? m.copyWith(name: name, price: price, isAvailable: isAvailable)
+                : m,
+        ]),
+      ));
     } catch (e) {
-      throw Exception('ไม่สามารถแก้ไขตัวเลือกได้');
+      throw AppFailure('ไม่สามารถแก้ไขตัวเลือกได้', e);
     }
   }
 
-  Future<void> deleteModifier(String id) async {
+  Future<void> deleteModifier({
+    required String groupId,
+    required String modifierId,
+  }) async {
     try {
-      await apiClient.dio.delete('/restaurant/modifiers/$id');
-      await fetch();
+      await _repository.deleteModifier(modifierId);
+      if (!mounted) return;
+      state = AsyncValue.data(_mapGroup(
+        groupId,
+        (g) => g.copyWith(
+          modifiers: g.modifiers.where((m) => m.id != modifierId).toList(),
+        ),
+      ));
     } catch (e) {
-      throw Exception('ไม่สามารถลบตัวเลือกได้');
+      throw AppFailure('ไม่สามารถลบตัวเลือกได้', e);
     }
   }
 
-  /// Attach a modifier group to a menu item.
-  /// POST /restaurant/items/{itemID}/modifier-groups
-  Future<void> linkGroupToItem(String itemId, String groupId,
-      {int sortOrder = 0}) async {
+  // ─── Item ↔ group links ──────────────────────────────────────────────────
+  //
+  // Which groups a given item uses is not part of this notifier's state, so
+  // these only talk to the server. Refresh the menu afterwards if the screen
+  // needs the new wiring.
+
+  Future<void> linkToItem({
+    required String itemId,
+    required String groupId,
+    int sortOrder = 1,
+  }) async {
     try {
-      await apiClient.dio.post('/restaurant/items/$itemId/modifier-groups',
-          data: {'modifier_group_id': groupId, 'sort_order': sortOrder});
+      await _repository.linkModifierGroupToItem(
+        itemId: itemId,
+        groupId: groupId,
+        sortOrder: sortOrder,
+      );
     } catch (e) {
-      throw Exception('ไม่สามารถผูกกลุ่มตัวเลือกกับเมนูได้');
+      throw AppFailure('ไม่สามารถผูกกลุ่มตัวเลือกกับเมนูได้', e);
     }
   }
 
-  Future<void> unlinkGroupFromItem(String itemId, String groupId) async {
+  Future<void> unlinkFromItem({
+    required String itemId,
+    required String groupId,
+  }) async {
     try {
-      await apiClient.dio
-          .delete('/restaurant/items/$itemId/modifier-groups/$groupId');
+      await _repository.unlinkModifierGroupFromItem(
+        itemId: itemId,
+        groupId: groupId,
+      );
     } catch (e) {
-      throw Exception('ไม่สามารถถอดกลุ่มตัวเลือกได้');
+      throw AppFailure('ไม่สามารถถอดกลุ่มตัวเลือกออกจากเมนูได้', e);
     }
   }
+
+  List<ModifierGroup> _mapGroup(
+    String groupId,
+    ModifierGroup Function(ModifierGroup) transform,
+  ) =>
+      [for (final g in _groups) g.id == groupId ? transform(g) : g];
 }
 
 // ─── Providers ─────────────────────────────────────────────────────────────
 
 final menuProvider =
     StateNotifierProvider<MenuNotifier, AsyncValue<List<MenuCategory>>>(
-        (ref) => MenuNotifier());
+  (ref) => MenuNotifier(
+    ref.watch(menuRepositoryProvider),
+    ref.watch(restaurantIdProvider),
+  ),
+);
 
 final modifierGroupProvider = StateNotifierProvider<ModifierGroupNotifier,
-    AsyncValue<List<ModifierGroup>>>((ref) => ModifierGroupNotifier());
+    AsyncValue<List<ModifierGroup>>>(
+  (ref) => ModifierGroupNotifier(
+    ref.watch(menuRepositoryProvider),
+    ref.watch(restaurantIdProvider),
+  ),
+);
