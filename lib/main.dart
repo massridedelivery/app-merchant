@@ -135,6 +135,7 @@ class MyApp extends ConsumerWidget {
 
     if (authState.isLoading && !authState.isAuthenticated) {
       return MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: const Scaffold(body: Center(child: CircularProgressIndicator())),
       );
@@ -142,6 +143,7 @@ class MyApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: 'Mass Merchant',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
       // Global "tap empty space to dismiss the keyboard". Wrapping every routed

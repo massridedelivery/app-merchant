@@ -90,7 +90,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     child: Container(
                       width: 120,
                       height: 120,
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
@@ -107,7 +107,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         ],
                       ),
                       child: Image.asset(
-                        'assets/icon/icon_foreground.png',
+                        'assets/icon/icon_m_mark.png',
                         fit: BoxFit.contain,
                       ),
                     ),
@@ -118,7 +118,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 Text(
                   'Mass Merchant',
                   style: AppTypography.heading1.copyWith(
-                    fontSize: 40,
+                    fontSize: 44,
                     fontWeight: FontWeight.w900,
                     color: AppColors.primary,
                     letterSpacing: 1.5,
