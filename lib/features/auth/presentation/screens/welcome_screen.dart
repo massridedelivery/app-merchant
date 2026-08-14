@@ -66,7 +66,7 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 48),
                         Text(
-                          'Just Merchant',
+                          'Mass Merchant',
                           style: AppTypography.heading2.copyWith(
                             color: AppColors.primary,
                             fontWeight: FontWeight.w900,
