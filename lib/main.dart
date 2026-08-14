@@ -16,6 +16,7 @@ import 'package:merchant_app/features/auth/presentation/screens/splash_screen.da
 import 'package:merchant_app/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/home/presentation/screens/main_screen.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -137,7 +138,7 @@ class MyApp extends ConsumerWidget {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+        home: const Scaffold(body: Center(child: MassLoadingM(size: 96))),
       );
     }
 
