@@ -355,12 +355,12 @@ class _AuthBankInfoScreenState extends State<AuthBankInfoScreen> {
                           ),
                           const Divider(height: 32, color: Color(0xFFF1F5F9)),
                           Text(
-                            'นาย ธนนันต์ อนุรักษ์',
+                            'ชื่อ-นามสกุล',
                             style: AppTypography.body2,
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '+66 892616445 | bankzapse@gmail.com',
+                            '08X-XXX-XXXX | name@email.com',
                             style: AppTypography.caption5.copyWith(
                               color: const Color(0xFF64748B),
                             ),

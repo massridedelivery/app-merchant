@@ -170,7 +170,7 @@ class _AuthConfirmationScreenState
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const TextSpan(text: ' ของ Just Merchant'),
+                              const TextSpan(text: ' ของ Mass Merchant'),
                             ],
                           ),
                           _buildAgreementRow(

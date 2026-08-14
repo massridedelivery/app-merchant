@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
@@ -48,7 +49,7 @@ class StoreDetailsScreen extends ConsumerWidget {
         ],
       ),
       body: profileAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFFE5002B))),
+        loading: () => const Center(child: MassLoadingM(size: 72)),
         error: (e, _) => Center(child: Text('เกิดข้อผิดพลาด: $e')),
         data: (profile) => SingleChildScrollView(
           child: Column(

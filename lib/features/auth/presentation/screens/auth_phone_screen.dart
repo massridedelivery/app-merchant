@@ -78,7 +78,7 @@ class _AuthPhoneScreenState extends ConsumerState<AuthPhoneScreen> {
               Text(
                 isLogin
                     ? 'ยินดีต้อนรับกลับมา! กรุณาระบุเบอร์โทรศัพท์เพื่อดำเนินการต่อ'
-                    : 'ระบุเบอร์โทรศัพท์ของคุณเพื่อเริ่มต้นการสมัครสมาชิก Just Merchant',
+                    : 'ระบุเบอร์โทรศัพท์ของคุณเพื่อเริ่มต้นการสมัครสมาชิก Mass Merchant',
                 style: AppTypography.body2.copyWith(
                   color: AppColors.semanticGrayNeutralFgMidOnWhite,
                   height: 1.5,

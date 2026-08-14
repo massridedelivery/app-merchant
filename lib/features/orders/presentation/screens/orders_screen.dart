@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
@@ -111,9 +112,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             Expanded(
               child: orderState.isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
+                      child: MassLoadingM(size: 72),
                     )
                   : TabBarView(
                       controller: _tabController,
