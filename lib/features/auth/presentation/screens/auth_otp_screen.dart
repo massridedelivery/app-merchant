@@ -50,7 +50,7 @@ class _AuthOtpScreenState extends State<AuthOtpScreen> {
   }
 
   void _onCompleted(String otp) {
-    if (otp.length != 4) return;
+    if (otp.length != 6) return;
     if (widget.flow == 'login') {
       context.go('/');
     } else {
