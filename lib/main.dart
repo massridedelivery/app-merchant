@@ -23,11 +23,15 @@ void main() {
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final splashReady = ref.watch(splashReadyProvider);
 
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
-      if (authState.isLoading) return null; // Wait for init
+      // Hold on the splash until auth has initialized AND the splash has been
+      // shown for its minimum duration (splashReadyProvider), so it never
+      // flashes past when init is fast.
+      if (authState.isLoading || !splashReady) return null;
 
       final isAuth = authState.isAuthenticated;
       final isSplash = state.matchedLocation == '/splash';
