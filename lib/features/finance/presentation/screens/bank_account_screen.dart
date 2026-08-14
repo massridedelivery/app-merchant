@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
@@ -111,7 +112,7 @@ class _BankAccountScreenState extends ConsumerState<BankAccountScreen> {
         iconTheme: const IconThemeData(color: AppColors.semanticGrayNeutralFgHigh),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: MassLoadingM(size: 72))
           : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(

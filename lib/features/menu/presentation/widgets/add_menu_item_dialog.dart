@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
@@ -98,7 +99,7 @@ class _AddMenuItemDialogState extends ConsumerState<AddMenuItemDialog> {
                     },
                   );
                 },
-                orElse: () => const Center(child: CircularProgressIndicator()),
+                orElse: () => const Center(child: MassLoadingM(size: 44)),
               ),
               const SizedBox(height: 16),
 

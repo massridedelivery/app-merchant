@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
@@ -153,7 +154,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
     final summaryAsync = ref.watch(financeSummaryProvider);
     return summaryAsync.when(
       loading: () => const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
+        child: MassLoadingM(size: 72),
       ),
       error: (e, _) => Center(child: Text('เกิดข้อผิดพลาด: $e')),
       data: (summary) => SingleChildScrollView(
