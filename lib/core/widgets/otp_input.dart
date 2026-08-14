@@ -14,7 +14,7 @@ import 'package:merchant_app/core/theme/app_typography.dart';
 class OtpInput extends StatefulWidget {
   const OtpInput({
     super.key,
-    this.length = 4,
+    this.length = 6,
     this.onChanged,
     this.onCompleted,
     this.autofocus = true,
@@ -64,86 +64,101 @@ class _OtpInputState extends State<OtpInput> {
   @override
   Widget build(BuildContext context) {
     final text = _controller.text;
-    const boxWidth = 64.0;
-    const boxHeight = 72.0;
-    const gap = 8.0;
 
-    return GestureDetector(
-      onTap: () => _focusNode.requestFocus(),
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        height: boxHeight,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // The real input — kept off-screen sized but fully functional. It
-            // holds all digits, so there is nothing to hop focus between.
-            Positioned.fill(
-              child: Opacity(
-                opacity: 0,
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  autofocus: widget.autofocus,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  showCursor: false,
-                  enableSuggestions: false,
-                  autofillHints: const [AutofillHints.oneTimeCode],
-                  inputFormatters: [
-                    LengthLimitingTextInputFormatter(widget.length),
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  onChanged: _handleChanged,
+    // Size the boxes to the available width so any digit count (4, 6, …) fits
+    // on a phone screen without overflowing. Boxes never grow past 64pt, so a
+    // short code still looks the same as before.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 6.0; // horizontal margin on each side of a box
+        const maxBoxWidth = 64.0;
+        final available = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : maxBoxWidth * widget.length + gap * 2 * widget.length;
+        final rawWidth =
+            (available - gap * 2 * widget.length) / widget.length;
+        final boxWidth = rawWidth.clamp(36.0, maxBoxWidth);
+        final boxHeight = boxWidth * 1.125; // keep the original 64:72 ratio
+
+        return GestureDetector(
+          onTap: () => _focusNode.requestFocus(),
+          behavior: HitTestBehavior.opaque,
+          child: SizedBox(
+            height: boxHeight,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // The real input — kept off-screen sized but fully functional.
+                // It holds all digits, so there is nothing to hop focus between.
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: 0,
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      autofocus: widget.autofocus,
+                      keyboardType: TextInputType.number,
+                      textInputAction: TextInputAction.done,
+                      showCursor: false,
+                      enableSuggestions: false,
+                      autofillHints: const [AutofillHints.oneTimeCode],
+                      inputFormatters: [
+                        LengthLimitingTextInputFormatter(widget.length),
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      onChanged: _handleChanged,
+                    ),
+                  ),
                 ),
-              ),
+                // The visual boxes. Ignore pointer so every tap reaches the field.
+                IgnorePointer(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(widget.length, (i) {
+                      final filled = i < text.length;
+                      final isCurrent =
+                          i == text.length && _focusNode.hasFocus;
+                      final active = isCurrent || filled;
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: gap),
+                        width: boxWidth,
+                        height: boxHeight,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: active
+                                ? AppColors.primary
+                                : const Color(0xFFE2E8F0),
+                            width: isCurrent ? 2 : 1,
+                          ),
+                          boxShadow: isCurrent
+                              ? [
+                                  BoxShadow(
+                                    color: AppColors.primary.withOpacity(0.1),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          filled ? text[i] : '',
+                          style: AppTypography.heading3.copyWith(
+                            color: AppColors.semanticGrayNeutralFgHigh,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
             ),
-            // The visual boxes. Ignore pointer so every tap reaches the field.
-            IgnorePointer(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(widget.length, (i) {
-                  final filled = i < text.length;
-                  final isCurrent = i == text.length && _focusNode.hasFocus;
-                  final active = isCurrent || filled;
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: gap),
-                    width: boxWidth,
-                    height: boxHeight,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: active
-                            ? AppColors.primary
-                            : const Color(0xFFE2E8F0),
-                        width: isCurrent ? 2 : 1,
-                      ),
-                      boxShadow: isCurrent
-                          ? [
-                              BoxShadow(
-                                color: AppColors.primary.withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      filled ? text[i] : '',
-                      style: AppTypography.heading3.copyWith(
-                        color: AppColors.semanticGrayNeutralFgHigh,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

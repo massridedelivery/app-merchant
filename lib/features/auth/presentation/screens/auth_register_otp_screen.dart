@@ -115,7 +115,7 @@ class _AuthRegisterOtpScreenState extends ConsumerState<AuthRegisterOtpScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'ระบุรหัส OTP 4 หลัก ที่เราส่งไปยังเบอร์โทรศัพท์ของคุณเพื่อยืนยันตัวตนเบื้องต้น',
+                'ระบุรหัส OTP 6 หลัก ที่เราส่งไปยังเบอร์โทรศัพท์ของคุณเพื่อยืนยันตัวตนเบื้องต้น',
                 style: AppTypography.body2.copyWith(
                   color: AppColors.semanticGrayNeutralFgMidOnWhite,
                   height: 1.5,
