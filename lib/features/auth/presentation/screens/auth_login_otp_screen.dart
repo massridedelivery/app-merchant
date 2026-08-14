@@ -105,7 +105,7 @@ class _AuthLoginOtpScreenState extends ConsumerState<AuthLoginOtpScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'กรุณากรอกรหัส OTP 4 หลัก ที่เราส่งไปยังเบอร์โทรศัพท์ของคุณ',
+                'กรุณากรอกรหัส OTP 6 หลัก ที่เราส่งไปยังเบอร์โทรศัพท์ของคุณ',
                 style: AppTypography.body2.copyWith(
                   color: AppColors.semanticGrayNeutralFgMidOnWhite,
                 ),
