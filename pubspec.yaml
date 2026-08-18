@@ -40,6 +40,8 @@ dependencies:
   web_socket_channel: ^3.0.3
   google_fonts: ^8.0.2
   flutter_svg: ^2.0.0
+  google_maps_flutter: ^2.14.2
+  geocoding: ^4.0.0
 
 dev_dependencies:
   flutter_test:

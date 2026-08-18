@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/errors/app_failure.dart';
+import 'package:merchant_app/core/services/google_places_service.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/location_picker_screen.dart';
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 
 /// Shown instead of the app when the profile is still the row registration
@@ -38,41 +40,60 @@ class _StoreOnboardingScreenState
         ? ''
         : (widget.profile.address ?? ''),
   );
-  late final _latController = TextEditingController(
-    text: widget.profile.hasLocation ? '${widget.profile.lat}' : '',
-  );
-  late final _lngController = TextEditingController(
-    text: widget.profile.hasLocation ? '${widget.profile.lng}' : '',
-  );
+  late double? _selectedLat =
+      widget.profile.hasLocation ? widget.profile.lat : null;
+  late double? _selectedLng =
+      widget.profile.hasLocation ? widget.profile.lng : null;
   bool _isLoading = false;
+
+  bool get _hasLocation => _selectedLat != null && _selectedLng != null;
 
   @override
   void dispose() {
     _nameController.dispose();
     _addressController.dispose();
-    _latController.dispose();
-    _lngController.dispose();
     super.dispose();
   }
 
-  String? _validateCoordinate(String? value, {required double limit}) {
-    if (value == null || value.trim().isEmpty) return 'กรุณากรอกพิกัด';
-    final parsed = double.tryParse(value.trim());
-    if (parsed == null) return 'พิกัดต้องเป็นตัวเลข';
-    if (parsed.abs() > limit) return 'พิกัดอยู่นอกช่วงที่เป็นไปได้';
-    if (parsed == 0) return 'พิกัด 0 ทำให้ลูกค้าหาร้านไม่เจอ';
-    return null;
+  Future<void> _pickLocation() async {
+    final result = await Navigator.of(context).push<PlaceResult>(
+      MaterialPageRoute(
+        builder: (_) => LocationPickerScreen(
+          initialLat: _selectedLat,
+          initialLng: _selectedLng,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _selectedLat = result.lat;
+      _selectedLng = result.lng;
+      // Auto-fill the address from the picked place when the field is empty.
+      if (_addressController.text.trim().isEmpty && result.address.isNotEmpty) {
+        _addressController.text = result.address;
+      }
+    });
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    final formOk = _formKey.currentState!.validate();
+    if (!_hasLocation) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('กรุณาเลือกตำแหน่งร้านบนแผนที่'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+    if (!formOk) return;
     setState(() => _isLoading = true);
     try {
       await ref.read(restaurantProfileProvider.notifier).updateProfile(
             name: _nameController.text.trim(),
             address: _addressController.text.trim(),
-            lat: double.parse(_latController.text.trim()),
-            lng: double.parse(_lngController.text.trim()),
+            lat: _selectedLat!,
+            lng: _selectedLng!,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -172,38 +193,73 @@ class _StoreOnboardingScreenState
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'เปิด Google Maps ค้างที่ตำแหน่งร้าน แล้วคัดลอกตัวเลขสองชุดมาวาง',
+                  'เลือกตำแหน่งบนแผนที่ หรือค้นหาจากชื่อสถานที่',
                   style: AppTypography.caption5.copyWith(
                     color: AppColors.semanticGrayNeutralFgMidOnWhite,
                   ),
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _field(
-                        controller: _latController,
-                        label: 'ละติจูด',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: true,
-                        ),
-                        validator: (v) => _validateCoordinate(v, limit: 90),
+                InkWell(
+                  onTap: _isLoading ? null : _pickLocation,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.semanticGrayNeutralBgWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _hasLocation
+                            ? AppColors.primary
+                            : const Color(0xFFE2E8F0),
+                        width: _hasLocation ? 1.5 : 1,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _field(
-                        controller: _lngController,
-                        label: 'ลองจิจูด',
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: true,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.location_on,
+                              color: AppColors.primary),
                         ),
-                        validator: (v) => _validateCoordinate(v, limit: 180),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _hasLocation
+                                    ? 'เลือกตำแหน่งแล้ว'
+                                    : 'เลือกตำแหน่งร้านบนแผนที่',
+                                style: AppTypography.label2.copyWith(
+                                  color: AppColors.semanticGrayNeutralFgHigh,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _hasLocation
+                                    ? '${_selectedLat!.toStringAsFixed(6)}, ${_selectedLng!.toStringAsFixed(6)}'
+                                    : 'แตะเพื่อเปิดแผนที่และปักหมุด',
+                                style: AppTypography.caption5.copyWith(
+                                  color: AppColors
+                                      .semanticGrayNeutralFgMidOnWhite,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          _hasLocation ? Icons.edit_location_alt : Icons.chevron_right,
+                          color: AppColors.primary,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 32),
 
