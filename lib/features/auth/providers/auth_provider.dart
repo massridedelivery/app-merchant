@@ -117,8 +117,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       rethrow;
     } on DioException catch (e) {
       if (mounted) state = state.copyWith(isLoading: false);
-      throw AppFailure(
-          e.response?.data['message'] ?? 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', e);
+      throw AppFailure(_errorText(e, 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้'), e);
     } catch (e) {
       if (mounted) state = state.copyWith(isLoading: false);
       throw AppFailure('เข้าสู่ระบบไม่สำเร็จ', e);
