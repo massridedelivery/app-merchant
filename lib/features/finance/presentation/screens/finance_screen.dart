@@ -19,7 +19,20 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _selectedEarningsFilter = 0;
-  final _earningsFilters = ['วันนี้', 'เมื่อวาน', 'สัปดาห์นี้', 'เดือนนี้'];
+  final _earningsFilters = ['วันนี้', 'สัปดาห์นี้', 'เดือนนี้', 'ปีนี้'];
+
+  EarningsPeriod _periodFor(FinanceEarnings e, int i) {
+    switch (i) {
+      case 1:
+        return e.thisWeek;
+      case 2:
+        return e.thisMonth;
+      case 3:
+        return e.thisYear;
+      default:
+        return e.today;
+    }
+  }
 
   @override
   void initState() {
@@ -157,19 +170,46 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
         child: MassLoadingM(size: 72),
       ),
       error: (e, _) => Center(child: Text('เกิดข้อผิดพลาด: $e')),
-      data: (summary) => SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-        child: Column(
-          children: [
-            _buildSummaryCard(summary),
-            const SizedBox(height: 24),
-            _buildEmptyFinanceIllustration(
-              title: 'ยอดขายยังไม่พร้อมแสดงผล',
-              subtitle: 'ข้อมูลสรุปจะแสดงหลังจากเริ่มรับออเดอร์',
-              icon: '🚀',
-            ),
-          ],
+      data: (summary) => RefreshIndicator(
+        onRefresh: () => ref.read(financeSummaryProvider.notifier).fetch(),
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          child: Column(
+            children: [
+              _buildSummaryCard(summary),
+              const SizedBox(height: 16),
+              _summaryStatRow('รายได้สะสมทั้งหมด', summary.lifetimeEarnings),
+              _summaryStatRow('ถอนออกไปแล้ว', summary.totalWithdrawn),
+              if (summary.lifetimeEarnings == 0) ...[
+                const SizedBox(height: 24),
+                _buildEmptyFinanceIllustration(
+                  title: 'ยอดขายยังไม่พร้อมแสดงผล',
+                  subtitle: 'ข้อมูลสรุปจะแสดงหลังจากเริ่มรับออเดอร์',
+                  icon: '🚀',
+                ),
+              ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _summaryStatRow(String label, double value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: AppTypography.body2
+                  .copyWith(color: AppColors.semanticGrayNeutralFgMidOnWhite)),
+          Text('฿${value.toStringAsFixed(2)}',
+              style: AppTypography.label1.copyWith(
+                  color: AppColors.semanticGrayNeutralFgHigh,
+                  fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }
@@ -202,7 +242,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'รายได้รวมทั้งหมด',
+                'ยอดคงเหลือในระบบ',
                 style: AppTypography.label2.copyWith(
                   color: AppColors.semanticGrayNeutralFgHigh,
                 ),
@@ -223,7 +263,7 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            '฿${s.totalRevenue.toStringAsFixed(2)}',
+            '฿${s.balance.toStringAsFixed(2)}',
             style: AppTypography.heading2.copyWith(
               color: AppColors.semanticGrayNeutralFgHigh,
             ),
@@ -231,17 +271,22 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _summaryMetric('คำสั่งซื้อ', '${s.totalOrders}')),
               Expanded(
                 child: _summaryMetric(
-                  'เฉลี่ยต่อบิล',
-                  '฿${s.avgOrderValue.toStringAsFixed(0)}',
+                  'ถอนได้',
+                  '฿${s.availableBalance.toStringAsFixed(0)}',
                 ),
               ),
               Expanded(
                 child: _summaryMetric(
-                  'รอรับเงิน',
-                  '฿${s.pendingPayout.toStringAsFixed(0)}',
+                  'รอถอน',
+                  '฿${s.pendingWithdrawal.toStringAsFixed(0)}',
+                ),
+              ),
+              Expanded(
+                child: _summaryMetric(
+                  'รายได้สะสม',
+                  '฿${s.lifetimeEarnings.toStringAsFixed(0)}',
                 ),
               ),
             ],
@@ -324,167 +369,208 @@ class _FinanceScreenState extends ConsumerState<FinanceScreen>
           ),
         ),
         const Divider(height: 1, color: Color(0xFFF1F5F9)),
-        Expanded(
-          child: _buildEmptyFinanceIllustration(
+        Expanded(child: _buildTransactionsList()),
+      ],
+    );
+  }
+
+  Widget _buildTransactionsList() {
+    final txAsync = ref.watch(financeTransactionsProvider);
+    return txAsync.when(
+      loading: () => const Center(child: MassLoadingM(size: 72)),
+      error: (e, _) => Center(child: Text('เกิดข้อผิดพลาด: $e')),
+      data: (page) {
+        if (page.items.isEmpty) {
+          return _buildEmptyFinanceIllustration(
             title: 'ไม่มีรายการชำระเงิน',
             subtitle: 'รายการจะปรากฏเมื่อลูกค้าชำระเงินสำเร็จ',
             icon: '💸',
+          );
+        }
+        return RefreshIndicator(
+          onRefresh: () => ref.read(financeTransactionsProvider.notifier).fetch(),
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (n) {
+              if (n.metrics.pixels >= n.metrics.maxScrollExtent - 200 &&
+                  page.hasMore) {
+                ref.read(financeTransactionsProvider.notifier).loadMore();
+              }
+              return false;
+            },
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: page.items.length + (page.hasMore ? 1 : 0),
+              separatorBuilder: (_, __) =>
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              itemBuilder: (_, i) {
+                if (i >= page.items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: MassLoadingM(size: 40)),
+                  );
+                }
+                final t = page.items[i];
+                final negative = t.amount < 0;
+                return ListTile(
+                  title: Text(
+                    t.description.isEmpty ? t.type : t.description,
+                    style: AppTypography.body2.copyWith(
+                        color: AppColors.semanticGrayNeutralFgHigh),
+                  ),
+                  subtitle: Text(
+                    [t.type, t.createdAt].where((s) => s != null && s.isNotEmpty).join(' · '),
+                    style: AppTypography.caption5
+                        .copyWith(color: const Color(0xFF64748B)),
+                  ),
+                  trailing: Text(
+                    '${negative ? '-' : '+'}฿${t.amount.abs().toStringAsFixed(2)}',
+                    style: AppTypography.label1.copyWith(
+                      color: negative
+                          ? AppColors.primary
+                          : AppColors.semanticSuccessFgHigh,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
   // ─── EARNINGS TAB ─────────────────────────────────────────────────────────
 
   Widget _buildEarningsTab() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-            child: Column(
-              children: [
-                // Top row: calendar + filter chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const AppIcon(
-                          AppIcons.calendarLine,
-                          size: 18,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ..._earningsFilters.asMap().entries.map((entry) {
-                        final i = entry.key;
-                        final label = entry.value;
-                        final selected = i == _selectedEarningsFilter;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () =>
-                                setState(() => _selectedEarningsFilter = i),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: selected
-                                    ? AppColors.primary.withOpacity(0.1)
-                                    : Colors.white,
-                                border: Border.all(
+    final earningsAsync = ref.watch(financeEarningsProvider);
+    return earningsAsync.when(
+      loading: () => const Center(child: MassLoadingM(size: 72)),
+      error: (e, _) => Center(child: Text('เกิดข้อผิดพลาด: $e')),
+      data: (earnings) {
+        final p = _periodFor(earnings, _selectedEarningsFilter);
+        return RefreshIndicator(
+          onRefresh: () => ref.read(financeEarningsProvider.notifier).fetch(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                child: Column(
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _earningsFilters.asMap().entries.map((entry) {
+                          final i = entry.key;
+                          final selected = i == _selectedEarningsFilter;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () =>
+                                  setState(() => _selectedEarningsFilter = i),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
                                   color: selected
                                       ? AppColors.primary.withOpacity(0.1)
-                                      : const Color(0xFFE2E8F0),
+                                      : Colors.white,
+                                  border: Border.all(
+                                    color: selected
+                                        ? AppColors.primary.withOpacity(0.1)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
                                 ),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                label,
-                                style: AppTypography.label2.copyWith(
-                                  color: selected
-                                      ? AppColors.primary
-                                      : const Color(0xFF64748B),
-                                  fontWeight: selected
-                                      ? FontWeight.bold
-                                      : FontWeight.w600,
+                                child: Text(
+                                  entry.value,
+                                  style: AppTypography.label2.copyWith(
+                                    color: selected
+                                        ? AppColors.primary
+                                        : const Color(0xFF64748B),
+                                    fontWeight: selected
+                                        ? FontWeight.bold
+                                        : FontWeight.w600,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 32),
-                // Amounts
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ยอดเงินสุทธิ',
-                              style: AppTypography.caption5.copyWith(
-                                color: const Color(0xFF64748B),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '฿0.00',
-                              style: AppTypography.heading3.copyWith(
-                                color: AppColors.semanticGrayNeutralFgHigh,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        }).toList(),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF2F2),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFFFEE2E2)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'รอโอนเข้าบัญชี',
+                    const SizedBox(height: 24),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('รายได้สุทธิ',
                               style: AppTypography.caption5.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '฿0.00',
-                              style: AppTypography.heading3.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
+                                  color: const Color(0xFF64748B),
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          Text('฿${p.netEarnings.toStringAsFixed(2)}',
+                              style: AppTypography.heading2.copyWith(
+                                  color: AppColors.semanticGrayNeutralFgHigh,
+                                  fontWeight: FontWeight.w900)),
+                          Text('${p.orders} ออเดอร์',
+                              style: AppTypography.caption5.copyWith(
+                                  color: const Color(0xFF64748B))),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _earningsRow('ยอดขายอาหาร', p.grossFood),
+                    _earningsRow('ค่าคอมมิชชั่นแพลตฟอร์ม', -p.commission),
+                    _earningsRow('ภาษีหัก ณ ที่จ่าย', -p.withholdingTax),
+                    const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                    _earningsRow('รายได้สุทธิ', p.netEarnings, bold: true),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          SizedBox(
-            height: 360,
-            child: _buildEmptyFinanceIllustration(
-              title: 'ยอดเงินยังเป็นศูนย์',
-              subtitle:
-                  'รายได้จะโอนเข้าบัญชีธนาคารที่คุณผูกไว้เมื่อครบกำหนดเวลา',
-              icon: '🏦',
+        );
+      },
+    );
+  }
+
+  Widget _earningsRow(String label, double value, {bool bold = false}) {
+    final negative = value < 0;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: AppTypography.body2.copyWith(
+                  color: bold
+                      ? AppColors.semanticGrayNeutralFgHigh
+                      : AppColors.semanticGrayNeutralFgMidOnWhite,
+                  fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+          Text(
+            '${negative ? '-' : ''}฿${value.abs().toStringAsFixed(2)}',
+            style: AppTypography.label1.copyWith(
+              color: negative
+                  ? AppColors.primary
+                  : AppColors.semanticGrayNeutralFgHigh,
+              fontWeight: bold ? FontWeight.w900 : FontWeight.bold,
             ),
           ),
         ],

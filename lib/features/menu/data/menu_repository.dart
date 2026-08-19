@@ -27,7 +27,7 @@ class MenuRepository {
         .get('/api/food/restaurant/$restaurantId/menu', queryParameters: {
       'lang': 'th',
     });
-    return (response.data['categories'] as List)
+    return ((response.data as Map<String, dynamic>?)?['categories'] as List? ?? [])
         .map((json) => MenuCategory.fromJson(json as Map<String, dynamic>))
         .toList();
   }
@@ -37,7 +37,7 @@ class MenuRepository {
   /// The merchant-side category list. Flat — no items attached.
   Future<List<MenuCategory>> fetchCategories() async {
     final response = await _api.dio.get('/api/food/restaurant/menu/categories');
-    return (response.data as List)
+    return (response.data as List? ?? [])
         .map((j) => MenuCategory.fromJson(j as Map<String, dynamic>))
         .toList();
   }
