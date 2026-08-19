@@ -3,7 +3,7 @@
 <plist version="1.0">
 	<dict>
 		<key>GOOGLE_MAPS_API_KEY</key>
-		<string>AIzaSyBhrfrq9d3ngim_8JScYuBlnrIGBoltJMw</string>
+		<string>AIzaSyBJ79nG9Q8MF_99ORElE6pEyHdCVOk8-kw</string>
 		<key>UIBackgroundModes</key>
 		<array>
 			<string>remote-notification</string>
