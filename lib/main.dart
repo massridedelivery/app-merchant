@@ -1,7 +1,13 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:merchant_app/core/notifications/push_notification_service.dart';
+import 'package:merchant_app/core/notifications/push_token_registrar.dart';
+import 'package:merchant_app/core/router/app_router_holder.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
+import 'package:merchant_app/firebase_options.dart';
 import 'package:merchant_app/features/auth/presentation/screens/auth_bank_info_screen.dart';
 import 'package:merchant_app/features/auth/presentation/screens/auth_business_info_screen.dart';
 import 'package:merchant_app/features/auth/presentation/screens/auth_business_type_screen.dart';
@@ -18,7 +24,33 @@ import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/home/presentation/screens/main_screen.dart';
 import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 
-void main() {
+/// True once Firebase initialised. Guards FCM token registration so a build
+/// without Firebase config simply runs without push (never crashes).
+bool _firebaseReady = false;
+bool _initialPushChecked = false;
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase options come from --dart-define (see firebase_options.dart). A
+  // build without those defines leaves every field empty; on iOS native FIRApp
+  // configuration would then abort with an uncatchable Obj-C exception, so skip
+  // init entirely when the required fields are absent — the app runs without
+  // push. Guarded so a Firebase failure can never block startup.
+  final options = DefaultFirebaseOptions.currentPlatform;
+  if (options.appId.isNotEmpty && options.projectId.isNotEmpty) {
+    try {
+      await Firebase.initializeApp(options: options);
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      await PushNotificationService.instance.init();
+      _firebaseReady = true;
+    } catch (e) {
+      debugPrint('main: Firebase init failed: $e');
+    }
+  } else {
+    debugPrint('main: Firebase options empty (no --dart-define) — push off');
+  }
+
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -133,6 +165,27 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(goRouterProvider);
     final authState = ref.watch(authProvider);
+
+    // Let notification taps navigate.
+    appRouter = router;
+
+    // Mirror the FCM device token onto the backend for whoever is signed in.
+    // No-op unless Firebase is configured (see main). ref.listen catches
+    // login/logout transitions; the block below covers a cold start that is
+    // already authenticated (no transition fires).
+    if (_firebaseReady) {
+      ref.listen<bool>(authProvider.select((s) => s.isAuthenticated),
+          (prev, next) {
+        final registrar = ref.read(pushTokenRegistrarProvider);
+        next ? registrar.onAuthenticated() : registrar.onLoggedOut();
+      });
+      if (!_initialPushChecked && authState.isAuthenticated) {
+        _initialPushChecked = true;
+        final registrar = ref.read(pushTokenRegistrarProvider);
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => registrar.onAuthenticated());
+      }
+    }
 
     if (authState.isLoading && !authState.isAuthenticated) {
       return MaterialApp(
