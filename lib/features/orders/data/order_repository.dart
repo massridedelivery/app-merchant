@@ -63,7 +63,8 @@ class OrderRepository {
         'oos_order_item_ids': oosOrderItemIds,
       });
 
-  List<Order> _parseList(dynamic data) => (data as List)
+  // Real BE returns `null` (not []) for an empty list.
+  List<Order> _parseList(dynamic data) => (data as List? ?? [])
       .map((j) => Order.fromJson(j as Map<String, dynamic>))
       .toList();
 }

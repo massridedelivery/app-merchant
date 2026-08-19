@@ -72,7 +72,8 @@ class RestaurantRepository {
 
   Future<List<RestaurantDocument>> fetchDocuments() async {
     final response = await _api.dio.get('/api/food/restaurant/documents');
-    return (response.data as List)
+    // The endpoint returns `null` (not []) when there are no documents.
+    return (response.data as List? ?? [])
         .map((j) => RestaurantDocument.fromJson(j as Map<String, dynamic>))
         .toList();
   }
