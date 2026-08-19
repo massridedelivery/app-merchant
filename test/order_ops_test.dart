@@ -50,7 +50,11 @@ class _FakeOrderRepository extends OrderRepository {
       ];
 
   @override
-  Future<List<Order>> fetchHistory() async => [];
+  Future<({List<Order> orders, bool hasMore})> fetchHistory({
+    int limit = 20,
+    int offset = 0,
+  }) async =>
+      (orders: <Order>[], hasMore: false);
 
   @override
   Future<void> updateOps({

@@ -22,10 +22,21 @@ class OrderRepository {
     return _parseList(response.data);
   }
 
-  /// No history endpoint appears in SCRUM-53 — MockInterceptor only.
-  Future<List<Order>> fetchHistory() async {
-    final response = await _api.dio.get('/api/food/restaurant/orders/history');
-    return _parseList(response.data);
+  /// `GET /restaurant/orders/history` (SCRUM-62) — paginated, terminal orders
+  /// only (COMPLETED / REJECTED / CANCELLED). Same order shape as pending.
+  Future<({List<Order> orders, bool hasMore})> fetchHistory({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final response = await _api.dio.get(
+      '/api/food/restaurant/orders/history',
+      queryParameters: {'limit': limit, 'offset': offset},
+    );
+    final data = response.data as Map<String, dynamic>;
+    final orders = (data['orders'] as List? ?? [])
+        .map((j) => Order.fromJson(j as Map<String, dynamic>))
+        .toList();
+    return (orders: orders, hasMore: data['has_more'] == true);
   }
 
   Future<void> accept(String id) =>
@@ -52,7 +63,8 @@ class OrderRepository {
         'oos_order_item_ids': oosOrderItemIds,
       });
 
-  List<Order> _parseList(dynamic data) => (data as List)
+  // Real BE returns `null` (not []) for an empty list.
+  List<Order> _parseList(dynamic data) => (data as List? ?? [])
       .map((j) => Order.fromJson(j as Map<String, dynamic>))
       .toList();
 }

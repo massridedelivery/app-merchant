@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
@@ -149,9 +150,7 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                         ],
                       ),
-                      orElse: () => const CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
+                      orElse: () => const MassLoadingM(size: 52),
                     ),
                     const SizedBox(height: 32),
 

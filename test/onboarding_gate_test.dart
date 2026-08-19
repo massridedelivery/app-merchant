@@ -117,7 +117,17 @@ void main() {
     expect(find.text('Pending Address'), findsNothing);
   });
 
-  testWidgets('zero coordinates are refused with a reason', (tester) async {
+  testWidgets('the map picker is offered instead of manual coordinates',
+      (tester) async {
+    await pump(tester, _FakeRestaurantRepository(placeholderProfile));
+
+    // The map-picker entry replaces the old ละติจูด/ลองจิจูด text fields.
+    expect(find.text('เลือกตำแหน่งร้านบนแผนที่'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'ละติจูด'), findsNothing);
+    expect(find.widgetWithText(TextFormField, 'ลองจิจูด'), findsNothing);
+  });
+
+  testWidgets('saving without a picked location is refused', (tester) async {
     final repo = _FakeRestaurantRepository(placeholderProfile);
     await pump(tester, repo);
 
@@ -125,8 +135,6 @@ void main() {
         find.widgetWithText(TextFormField, 'ชื่อร้าน'), 'Somchai Kitchen');
     await tester.enterText(
         find.widgetWithText(TextFormField, 'ที่อยู่ร้าน'), '123 Sukhumvit');
-    await tester.enterText(find.widgetWithText(TextFormField, 'ละติจูด'), '0');
-    await tester.enterText(find.widgetWithText(TextFormField, 'ลองจิจูด'), '0');
     // The form is taller than the test viewport; the button must be on
     // screen for the tap to land.
     await tester.ensureVisible(find.text('บันทึกและเริ่มใช้งาน'));
@@ -134,61 +142,8 @@ void main() {
     await tester.tap(find.text('บันทึกและเริ่มใช้งาน'));
     await tester.pumpAndSettle();
 
-    expect(find.text('พิกัด 0 ทำให้ลูกค้าหาร้านไม่เจอ'), findsWidgets);
+    // No location was picked → the gate refuses and nothing is saved.
+    expect(find.text('กรุณาเลือกตำแหน่งร้านบนแผนที่'), findsWidgets);
     expect(repo.lastUpdate, isNull);
-  });
-
-  testWidgets('an out-of-range latitude is refused', (tester) async {
-    final repo = _FakeRestaurantRepository(placeholderProfile);
-    await pump(tester, repo);
-
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ชื่อร้าน'), 'Somchai Kitchen');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ที่อยู่ร้าน'), '123 Sukhumvit');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ละติจูด'), '999');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ลองจิจูด'), '100.5');
-    // The form is taller than the test viewport; the button must be on
-    // screen for the tap to land.
-    await tester.ensureVisible(find.text('บันทึกและเริ่มใช้งาน'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('บันทึกและเริ่มใช้งาน'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('พิกัดอยู่นอกช่วงที่เป็นไปได้'), findsOneWidget);
-    expect(repo.lastUpdate, isNull);
-  });
-
-  testWidgets('a real location saves and releases the gate', (tester) async {
-    final repo = _FakeRestaurantRepository(placeholderProfile);
-    final container = await pump(tester, repo);
-
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ชื่อร้าน'), 'Somchai Kitchen');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ที่อยู่ร้าน'), '123 Sukhumvit Rd');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ละติจูด'), '13.7245');
-    await tester.enterText(
-        find.widgetWithText(TextFormField, 'ลองจิจูด'), '100.5692');
-    // The form is taller than the test viewport; the button must be on
-    // screen for the tap to land.
-    await tester.ensureVisible(find.text('บันทึกและเริ่มใช้งาน'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('บันทึกและเริ่มใช้งาน'));
-    await tester.pumpAndSettle();
-
-    expect(repo.lastUpdate, {
-      'name': 'Somchai Kitchen',
-      'address': '123 Sukhumvit Rd',
-      'lat': 13.7245,
-      'lng': 100.5692,
-    });
-
-    final profile = container.read(restaurantProfileProvider).value!;
-    expect(profile.isPlaceholder, isFalse);
-    expect(find.text('the app'), findsOneWidget);
   });
 }

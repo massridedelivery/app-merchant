@@ -16,6 +16,7 @@ import 'package:merchant_app/features/auth/presentation/screens/splash_screen.da
 import 'package:merchant_app/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/home/presentation/screens/main_screen.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -23,11 +24,15 @@ void main() {
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final splashReady = ref.watch(splashReadyProvider);
 
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
-      if (authState.isLoading) return null; // Wait for init
+      // Hold on the splash until auth has initialized AND the splash has been
+      // shown for its minimum duration (splashReadyProvider), so it never
+      // flashes past when init is fast.
+      if (authState.isLoading || !splashReady) return null;
 
       final isAuth = authState.isAuthenticated;
       final isSplash = state.matchedLocation == '/splash';
@@ -131,13 +136,15 @@ class MyApp extends ConsumerWidget {
 
     if (authState.isLoading && !authState.isAuthenticated) {
       return MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: const Scaffold(body: Center(child: CircularProgressIndicator())),
+        home: const Scaffold(body: Center(child: MassLoadingM(size: 96))),
       );
     }
 
     return MaterialApp.router(
       title: 'Mass Merchant',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,
       // Global "tap empty space to dismiss the keyboard". Wrapping every routed

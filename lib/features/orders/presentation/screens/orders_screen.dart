@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
@@ -111,9 +112,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
             Expanded(
               child: orderState.isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
+                      child: MassLoadingM(size: 72),
                     )
                   : TabBarView(
                       controller: _tabController,
@@ -245,13 +244,36 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
       return tab == 0 ? _buildEmptyPreparingState() : _buildEmptyState(tab);
     }
 
+    final isHistory = tab == 3;
+    final hasMore = isHistory && ref.watch(orderProvider).historyHasMore;
+
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: () => ref.read(orderProvider.notifier).fetchOrders(),
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-        itemCount: orders.length,
-        itemBuilder: (_, i) => _buildOrderCard(orders[i]),
+      onRefresh: () => isHistory
+          ? ref.read(orderProvider.notifier).fetchHistory()
+          : ref.read(orderProvider.notifier).fetchOrders(),
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (isHistory &&
+              hasMore &&
+              n.metrics.pixels >= n.metrics.maxScrollExtent - 200) {
+            ref.read(orderProvider.notifier).loadMoreHistory();
+          }
+          return false;
+        },
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          itemCount: orders.length + (hasMore ? 1 : 0),
+          itemBuilder: (_, i) {
+            if (i >= orders.length) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: MassLoadingM(size: 40)),
+              );
+            }
+            return _buildOrderCard(orders[i]);
+          },
+        ),
       ),
     );
   }

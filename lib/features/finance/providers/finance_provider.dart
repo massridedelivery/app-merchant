@@ -10,6 +10,7 @@ class FinanceSummaryNotifier extends StateNotifier<AsyncValue<FinanceSummary>> {
   final FinanceRepository _repository;
 
   Future<void> fetch() async {
+    state = const AsyncValue.loading();
     try {
       final summary = await _repository.fetchSummary();
       if (!mounted) return;
@@ -24,32 +25,6 @@ class FinanceSummaryNotifier extends StateNotifier<AsyncValue<FinanceSummary>> {
 final financeSummaryProvider =
     StateNotifierProvider<FinanceSummaryNotifier, AsyncValue<FinanceSummary>>(
         (ref) => FinanceSummaryNotifier(ref.watch(financeRepositoryProvider)));
-
-class FinanceTransactionsNotifier
-    extends StateNotifier<AsyncValue<List<Map<String, dynamic>>>> {
-  FinanceTransactionsNotifier(this._repository)
-      : super(const AsyncValue.loading()) {
-    fetch();
-  }
-
-  final FinanceRepository _repository;
-
-  Future<void> fetch() async {
-    try {
-      final transactions = await _repository.fetchTransactions();
-      if (!mounted) return;
-      state = AsyncValue.data(transactions);
-    } catch (e, st) {
-      if (!mounted) return;
-      state = AsyncValue.error(e, st);
-    }
-  }
-}
-
-final financeTransactionsProvider = StateNotifierProvider<
-    FinanceTransactionsNotifier, AsyncValue<List<Map<String, dynamic>>>>(
-  (ref) => FinanceTransactionsNotifier(ref.watch(financeRepositoryProvider)),
-);
 
 class FinanceEarningsNotifier
     extends StateNotifier<AsyncValue<FinanceEarnings>> {
@@ -75,3 +50,62 @@ class FinanceEarningsNotifier
 final financeEarningsProvider =
     StateNotifierProvider<FinanceEarningsNotifier, AsyncValue<FinanceEarnings>>(
         (ref) => FinanceEarningsNotifier(ref.watch(financeRepositoryProvider)));
+
+/// Paginated transactions ledger. [loadMore] appends the next page.
+class FinanceTransactionsNotifier
+    extends StateNotifier<AsyncValue<TransactionsPage>> {
+  FinanceTransactionsNotifier(this._repository)
+      : super(const AsyncValue.loading()) {
+    fetch();
+  }
+
+  final FinanceRepository _repository;
+  static const _pageSize = 20;
+  bool _loadingMore = false;
+
+  Future<void> fetch() async {
+    try {
+      final page = await _repository.fetchTransactions(limit: _pageSize);
+      if (!mounted) return;
+      state = AsyncValue.data(page);
+    } catch (e, st) {
+      if (!mounted) return;
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasMore || _loadingMore) return;
+    _loadingMore = true;
+    try {
+      final next = await _repository.fetchTransactions(
+        limit: _pageSize,
+        offset: current.offset + current.items.length,
+      );
+      if (!mounted) return;
+      state = AsyncValue.data(TransactionsPage(
+        items: [...current.items, ...next.items],
+        total: next.total,
+        limit: next.limit,
+        offset: current.offset,
+        hasMore: next.hasMore,
+      ));
+    } catch (_) {
+      // keep the pages already loaded
+    } finally {
+      _loadingMore = false;
+    }
+  }
+}
+
+final financeTransactionsProvider = StateNotifierProvider<
+    FinanceTransactionsNotifier, AsyncValue<TransactionsPage>>(
+  (ref) => FinanceTransactionsNotifier(ref.watch(financeRepositoryProvider)),
+);
+
+/// Withdrawal history (`GET /restaurant/withdrawals`).
+final withdrawalsProvider =
+    FutureProvider.autoDispose<List<WithdrawalRequest>>((ref) {
+  return ref.watch(financeRepositoryProvider).fetchWithdrawals();
+});
