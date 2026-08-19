@@ -179,10 +179,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Backend errors come back as `{error: …}` (OTP) or `{message: …}` (auth);
   /// fall back to a Thai default so nothing raw ever reaches the UI.
+  /// Turns a [DioException] into something worth showing.
+  ///
+  /// A request that never reached the server is called out as such: without
+  /// this, a backend that is simply not running looks identical to one that
+  /// rejected the input, and there is nothing on screen to tell them apart.
   String _errorText(DioException e, String fallback) {
     final data = e.response?.data;
     if (data is Map) {
       return (data['error'] ?? data['message'] ?? fallback).toString();
+    }
+    if (e.response == null) {
+      return switch (e.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout =>
+          'เซิร์ฟเวอร์ไม่ตอบสนอง กรุณาลองใหม่',
+        _ => 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ต',
+      };
     }
     return fallback;
   }

@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../network/api_client.dart';
+
 /// Events the **restaurant** socket receives (SCRUM-53 §11, read from
 /// `internal/ws` on main@2ac3bec).
 ///
@@ -42,7 +44,10 @@ class SocketService {
   WebSocketChannel? _channel;
   Timer? _mockTimer;
   Timer? _reconnectTimer;
-  bool _isMockMode = false; // Set to true only for offline/demo testing
+  /// Mirrors [ApiClient.useMock] unless [connect] is told otherwise, so HTTP
+  /// and the socket can never end up in different modes — a half-mocked app
+  /// shows fake orders while real requests go out, which reads as "it works".
+  bool _isMockMode = ApiClient.useMock;
 
   final StreamController<Map<String, dynamic>> _controller =
       StreamController.broadcast();
@@ -58,11 +63,13 @@ class SocketService {
   Stream<bool> get connectionStatus => _connection.stream;
   bool get isConnected => _channel != null || _isMockMode;
 
-  Future<void> connect({bool mockMode = false}) async {
-    _isMockMode = mockMode;
+  /// [mockMode] defaults to whatever the HTTP client is doing. Pass it
+  /// explicitly only to force one transport for a test or a demo.
+  Future<void> connect({bool? mockMode}) async {
+    _isMockMode = mockMode ?? ApiClient.useMock;
 
     if (_isMockMode) {
-      debugPrint('[SocketService] Running in mock mode');
+      debugPrint('[SocketService] mock mode — orders come from a local timer');
       _startMockBroadcasting();
       _connection.add(true);
       return;
@@ -76,6 +83,7 @@ class SocketService {
     if (token == null) return;
 
     try {
+      debugPrint('[SocketService] connecting to $wsUrl');
       final uri = Uri.parse('$wsUrl?token=$token');
       _channel = WebSocketChannel.connect(uri);
       _connection.add(true);

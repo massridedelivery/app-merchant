@@ -42,7 +42,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void initState() {
     super.initState();
     _socket = ref.read(socketServiceProvider);
-    _socket.connect(mockMode: true);
+    _socket.connect();
   }
 
   @override
