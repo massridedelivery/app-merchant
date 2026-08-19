@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/network/api_client.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_document.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
+import 'package:merchant_app/features/restaurant/models/store_hours.dart';
 
 class RestaurantRepository {
   RestaurantRepository(this._api);
@@ -45,6 +46,17 @@ class RestaurantRepository {
         'closing_time': ?closingTime,
         'timezone': ?timezone,
       });
+
+  // ─── Opening hours (SCRUM-63) ────────────────────────────────────────────
+
+  Future<StoreHours> fetchHours() async {
+    final response = await _api.dio.get('/api/food/restaurant/hours');
+    return StoreHours.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// `PUT /restaurant/hours` — must send all 7 days or the call is rejected.
+  Future<void> updateHours(StoreHours hours) =>
+      _api.dio.put('/api/food/restaurant/hours', data: hours.toJson());
 
   Future<void> setOpen(bool isOpen) =>
       _api.dio.post('/api/food/restaurant/open', data: {'is_open': isOpen});

@@ -11,6 +11,7 @@ class OrderState {
   final List<Order> ready; // OrderStatus.readyForPickup
   final List<Order> delivering; // OrderStatus.withDriver
   final List<Order> history; // OrderStatus.finished
+  final bool historyHasMore;
   final bool isLoading;
   final bool hasNewOrder;
   final Order? newestIncomingOrder;
@@ -20,6 +21,7 @@ class OrderState {
     this.ready = const [],
     this.delivering = const [],
     this.history = const [],
+    this.historyHasMore = false,
     this.isLoading = true,
     this.hasNewOrder = false,
     this.newestIncomingOrder,
@@ -34,6 +36,7 @@ class OrderState {
     List<Order>? ready,
     List<Order>? delivering,
     List<Order>? history,
+    bool? historyHasMore,
     bool? isLoading,
     bool? hasNewOrder,
     Order? newestIncomingOrder,
@@ -44,6 +47,7 @@ class OrderState {
       ready: ready ?? this.ready,
       delivering: delivering ?? this.delivering,
       history: history ?? this.history,
+      historyHasMore: historyHasMore ?? this.historyHasMore,
       isLoading: isLoading ?? this.isLoading,
       hasNewOrder: clearNew ? false : (hasNewOrder ?? this.hasNewOrder),
       newestIncomingOrder:
@@ -213,12 +217,39 @@ class OrderNotifier extends StateNotifier<OrderState> {
     }
   }
 
+  static const int _historyPageSize = 20;
+  bool _historyLoadingMore = false;
+
   Future<void> fetchHistory() async {
     try {
-      final orders = await _repository.fetchHistory();
+      final page = await _repository.fetchHistory(limit: _historyPageSize);
       if (!mounted) return;
-      state = state.copyWith(history: orders);
+      state = state.copyWith(
+        history: page.orders,
+        historyHasMore: page.hasMore,
+      );
     } catch (_) {}
+  }
+
+  /// Appends the next page of terminal orders (SCRUM-62 pagination).
+  Future<void> loadMoreHistory() async {
+    if (!state.historyHasMore || _historyLoadingMore) return;
+    _historyLoadingMore = true;
+    try {
+      final page = await _repository.fetchHistory(
+        limit: _historyPageSize,
+        offset: state.history.length,
+      );
+      if (!mounted) return;
+      state = state.copyWith(
+        history: [...state.history, ...page.orders],
+        historyHasMore: page.hasMore,
+      );
+    } catch (_) {
+      // keep what we have
+    } finally {
+      _historyLoadingMore = false;
+    }
   }
 
   Future<void> acceptOrder(String id) async {

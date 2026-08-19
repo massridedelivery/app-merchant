@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
+import 'package:merchant_app/features/restaurant/data/restaurant_repository.dart';
+import 'package:merchant_app/features/restaurant/models/store_hours.dart';
 
 class DaySchedule {
   String day;
   String dayTh;
+  int dayOfWeek; // BE: 0=Sun … 6=Sat
   bool isOpen;
   bool is24hr;
   String openTime;
@@ -14,6 +19,7 @@ class DaySchedule {
   DaySchedule({
     required this.day,
     required this.dayTh,
+    required this.dayOfWeek,
     this.isOpen = true,
     this.is24hr = false,
     this.openTime = '10:00',
@@ -21,23 +27,56 @@ class DaySchedule {
   });
 }
 
-class OpeningHoursScreen extends StatefulWidget {
+class OpeningHoursScreen extends ConsumerStatefulWidget {
   const OpeningHoursScreen({super.key});
 
   @override
-  State<OpeningHoursScreen> createState() => _OpeningHoursScreenState();
+  ConsumerState<OpeningHoursScreen> createState() => _OpeningHoursScreenState();
 }
 
-class _OpeningHoursScreenState extends State<OpeningHoursScreen> {
+class _OpeningHoursScreenState extends ConsumerState<OpeningHoursScreen> {
   final List<DaySchedule> _schedule = [
-    DaySchedule(day: 'MON', dayTh: 'จันทร์', isOpen: true, openTime: '10:00', closeTime: '18:00'),
-    DaySchedule(day: 'TUE', dayTh: 'อังคาร', isOpen: true, openTime: '10:00', closeTime: '18:00'),
-    DaySchedule(day: 'WED', dayTh: 'พุธ', isOpen: true, openTime: '10:00', closeTime: '18:00'),
-    DaySchedule(day: 'THU', dayTh: 'พฤหัส', isOpen: true, openTime: '10:00', closeTime: '18:00'),
-    DaySchedule(day: 'FRI', dayTh: 'ศุกร์', isOpen: false, openTime: '10:00', closeTime: '22:00'),
-    DaySchedule(day: 'SAT', dayTh: 'เสาร์', isOpen: false, openTime: '10:00', closeTime: '22:00'),
-    DaySchedule(day: 'SUN', dayTh: 'อาทิตย์', isOpen: false, openTime: '10:00', closeTime: '22:00'),
+    DaySchedule(day: 'MON', dayTh: 'จันทร์', dayOfWeek: 1, openTime: '10:00', closeTime: '18:00'),
+    DaySchedule(day: 'TUE', dayTh: 'อังคาร', dayOfWeek: 2, openTime: '10:00', closeTime: '18:00'),
+    DaySchedule(day: 'WED', dayTh: 'พุธ', dayOfWeek: 3, openTime: '10:00', closeTime: '18:00'),
+    DaySchedule(day: 'THU', dayTh: 'พฤหัส', dayOfWeek: 4, openTime: '10:00', closeTime: '18:00'),
+    DaySchedule(day: 'FRI', dayTh: 'ศุกร์', dayOfWeek: 5, openTime: '10:00', closeTime: '22:00'),
+    DaySchedule(day: 'SAT', dayTh: 'เสาร์', dayOfWeek: 6, openTime: '10:00', closeTime: '22:00'),
+    DaySchedule(day: 'SUN', dayTh: 'อาทิตย์', dayOfWeek: 0, openTime: '10:00', closeTime: '22:00'),
   ];
+
+  String _timezone = 'Asia/Bangkok';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHours();
+  }
+
+  Future<void> _loadHours() async {
+    try {
+      final hours = await ref.read(restaurantRepositoryProvider).fetchHours();
+      _timezone = hours.timezone;
+      for (final d in hours.days) {
+        final local = _schedule.where((s) => s.dayOfWeek == d.dayOfWeek);
+        if (local.isEmpty) continue;
+        final s = local.first;
+        s.isOpen = !d.isClosed;
+        s.openTime = _snap(d.openTime);
+        s.closeTime = _snap(d.closeTime);
+        // BE has no 24h flag; open == close is our 24h convention.
+        s.is24hr = !d.isClosed && d.openTime == d.closeTime;
+      }
+    } catch (_) {
+      // fall back to the defaults already in _schedule
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Times must be one of the dropdown options, or DropdownButton asserts.
+  String _snap(String t) => _timeOptions.contains(t) ? t : '10:00';
 
   static const _timeOptions = [
     '00:00', '00:30', '01:00', '01:30', '02:00', '02:30', '03:00', '03:30',
@@ -70,10 +109,13 @@ class _OpeningHoursScreenState extends State<OpeningHoursScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              children: _schedule.map((day) => _buildDayCard(day)).toList(),
-            ),
+            child: _isLoading
+                ? const Center(child: MassLoadingM(size: 72))
+                : ListView(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    children:
+                        _schedule.map((day) => _buildDayCard(day)).toList(),
+                  ),
           ),
           // ─── Save Button ──────────────────────────────
           Container(
@@ -226,9 +268,22 @@ class _OpeningHoursScreenState extends State<OpeningHoursScreen> {
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) {
-      setState(() => _isSaving = false);
+    try {
+      // Always send all 7 days — a partial PUT is rejected. 24h is encoded as
+      // open == close (the backend reads close <= open as running overnight).
+      final days = _schedule
+          .map((s) => DayHours(
+                dayOfWeek: s.dayOfWeek,
+                openTime: s.is24hr ? '00:00' : s.openTime,
+                closeTime: s.is24hr ? '00:00' : s.closeTime,
+                isClosed: !s.isOpen,
+              ))
+          .toList()
+        ..sort((a, b) => a.dayOfWeek.compareTo(b.dayOfWeek));
+      await ref
+          .read(restaurantRepositoryProvider)
+          .updateHours(StoreHours(days: days, timezone: _timezone));
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('บันทึกเวลาเปิด-ปิดเรียบร้อยแล้ว'),
@@ -237,6 +292,17 @@ class _OpeningHoursScreenState extends State<OpeningHoursScreen> {
         ),
       );
       Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('บันทึกไม่สำเร็จ: $e'),
+          backgroundColor: const Color(0xFFE5002B),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 }
