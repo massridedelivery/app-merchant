@@ -107,18 +107,24 @@ bundle exec fastlane ios certificates   # creates + stores App Store cert/profil
 ## Environment files
 
 `env/dev.json` and `env/prod.json` are consumed via
-`--dart-define-from-file`. **Note:** the app code does not yet read these values —
-the API base URL is currently hardcoded in
-`lib/core/network/api_client.dart` (`http://localhost:8080/api/food`) and the
-socket URL in `lib/core/services/socket_service.dart`. To make the env files
-effective, switch those to:
+`--dart-define-from-file`. The app reads them through `String.fromEnvironment`:
 
-```dart
-static const String baseUrl =
-    String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8080/api/food');
-```
+| Key | Read by |
+| --- | --- |
+| `API_BASE_URL` | `ApiClient.baseUrl` — bare host, no `/api/food` suffix |
+| `WS_URL` | `SocketService.wsUrl` |
+| `USE_MOCK` | `ApiClient.useMock` — `true` serves canned data offline |
+| `ENV` | nothing yet |
 
-Until then the env files exist only to satisfy the build flag.
+Defaults apply when a build passes no env file: the mock interceptor is on and
+the host is `localhost:8080`. That is why a bare `flutter run` behaves very
+differently from `make run`.
+
+**`env/prod.json` deliberately holds the dev host.** No production backend
+exists yet, and no workflow secret overrides the file, so
+`flutter build appbundle` in `release-android.yml` and `flutter build ipa` in
+`ios/fastlane/Fastfile` both ship against `driver-api-dev.nutchaphut.dev`.
+Point the file at production before the first real store release.
 
 ## Notes / prerequisites
 
