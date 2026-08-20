@@ -29,6 +29,11 @@
 		<string>ใช้เลือกรูปโลโก้และรูปหน้าปกร้านจากคลังภาพ</string>
 		<key>NSCameraUsageDescription</key>
 		<string>ใช้ถ่ายรูปโลโก้และรูปหน้าปกร้าน</string>
+		<!-- Required by the linked Maps SDK (ITMS-90683): the store-location
+		     picker shows a map. The app never requests the user's device
+		     location (no prompt) — WhenInUse only, no background/Always. -->
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>ใช้แสดงแผนที่เพื่อเลือกตำแหน่งที่ตั้งร้านของคุณ</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
