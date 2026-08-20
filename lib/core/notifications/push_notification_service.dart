@@ -180,6 +180,14 @@ class PushNotificationService {
 
   void _handleTap(RemoteMessage message) {
     debugPrint('FCM(tap): id=${message.messageId} data=${message.data}');
+    if (_isNewOrder(message)) {
+      // Land on the Orders tab (index 1 in the main screen) and remember the
+      // order id for the list to highlight/open.
+      pendingOrderId = message.data['order_id'] as String?;
+      pendingTabIndex = 1;
+      appRouter?.go('/');
+      return;
+    }
     _navigateTo(_routeFor(message));
   }
 
