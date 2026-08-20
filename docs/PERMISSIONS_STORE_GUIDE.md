@@ -75,6 +75,9 @@ Future<bool> ensurePermission(Permission p, {required String why}) async {
 ## ขั้นที่ 4 — ให้ผ่าน App Store (Apple)
 
 1. **Purpose string ต้องมีทุกสิทธิ์ที่แตะ** ใน `ios/Runner/Info.plist` — ขาด = reject, กว้างไป = reject
+   - ⚠️ **ITMS-90683 (สำคัญ):** ถ้า **link SDK** ที่อ้าง API ข้อมูลอ่อนไหว (เช่น `google_maps_flutter`/`geocoding` → CoreLocation) Apple บังคับให้มี purpose string **แม้แอปจะไม่ได้ใช้จริง** ("your app might not use these APIs, a purpose string is still required")
+   - เจอตอนทำ Merchant: ลบ `NSLocationWhenInUseUsageDescription` ออกแล้วโดน ITMS-90683 เพราะยังมี map SDK → ต้อง **ใส่ WhenInUse กลับ** (ไม่เอา Always) ด้วย string ตรงๆ เช่น "ใช้แสดงแผนที่เพื่อเลือกตำแหน่งที่ตั้งร้าน" — แอปไม่ prompt ผู้ใช้ก็ได้ แต่ string ต้องมี
+   - สรุป: **มี map/geocoding = ต้องมี `NSLocationWhenInUseUsageDescription` เสมอ** (แต่ยังตัด Always/background ได้ถ้าไม่ใช้)
    เขียนให้เจาะจง (บอก "ทำไม"):
    ```xml
    <key>NSLocationWhenInUseUsageDescription</key>
