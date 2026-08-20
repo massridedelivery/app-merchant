@@ -59,9 +59,24 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
+# Branded splash / launch screen (run: dart run flutter_native_splash:create).
+# Matches the launcher icon: the white M mark on the brand red, so the launch
+# is seamless (icon → same-red splash → app).
+flutter_native_splash:
+  color: "#B4312E"
+  image: assets/icon/icon_m_mark.png
+  android: true
+  ios: true
+  web: false
+  # Android 12+ uses the system splash API (the icon is masked to a circle).
+  android_12:
+    color: "#B4312E"
+    image: assets/icon/icon_m_mark.png
 
 # App launcher icon (run: dart run flutter_launcher_icons)
 flutter_launcher_icons:
