@@ -4,6 +4,11 @@
 <dict>
 	<key>GOOGLE_MAPS_API_KEY</key>
 	<string>AIzaSyBhrfrq9d3ngim_8JScYuBlnrIGBoltJMw</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>

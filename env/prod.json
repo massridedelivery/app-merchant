@@ -2,5 +2,16 @@
   "API_BASE_URL": "https://driver-api-dev.nutchaphut.dev",
   "WS_URL": "wss://driver-api-dev.nutchaphut.dev/ws",
   "USE_MOCK": false,
-  "ENV": "prod"
+  "ENV": "prod",
+  "APP_ANDROID_FIREBASE_API_KEY": "",
+  "APP_ANDROID_FIREBASE_APP_ID": "",
+  "APP_ANDROID_FIREBASE_MSG_SENDER_ID": "",
+  "APP_ANDROID_FIREBASE_PROJECT_ID": "",
+  "APP_ANDROID_FIREBASE_STORAGE_BUCKET": "",
+  "APP_IOS_FIREBASE_API_KEY": "",
+  "APP_IOS_FIREBASE_APP_ID": "",
+  "APP_IOS_FIREBASE_MSG_SENDER_ID": "",
+  "APP_IOS_FIREBASE_PROJECT_ID": "",
+  "APP_IOS_FIREBASE_STORAGE_BUCKET": "",
+  "APP_IOS_FIREBASE_BUNDLE_ID": ""
 }

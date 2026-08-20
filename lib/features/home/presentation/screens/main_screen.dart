@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/router/app_router_holder.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
@@ -54,6 +55,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
     final profileAsync = ref.watch(restaurantProfileProvider);
+
+    // A tapped new-order push routes to '/' and asks for the Orders tab; honour
+    // it once, after this frame, then clear so it doesn't fire again.
+    if (pendingTabIndex != null) {
+      final target = pendingTabIndex!;
+      pendingTabIndex = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(navigationProvider.notifier).state = target;
+      });
+    }
 
     // A restaurant still on the row registration created has no real
     // coordinates, which means customer search cannot see it at all. Nothing

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/core/notifications/push_notification_service.dart';
 import 'package:merchant_app/features/orders/data/order_repository.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
@@ -256,6 +257,8 @@ class OrderNotifier extends StateNotifier<OrderState> {
     try {
       await _repository.accept(id);
       _applyStatus(id, OrderStatus.restaurantAccepted);
+      // Stop the loud order-alert push sound if it is still ringing.
+      unawaited(PushNotificationService.instance.cancelOrderAlerts());
     } catch (e) {
       throw AppFailure('ไม่สามารถรับออเดอร์ได้', e);
     }
