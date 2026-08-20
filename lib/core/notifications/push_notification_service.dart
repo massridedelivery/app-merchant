@@ -220,6 +220,14 @@ class PushNotificationService {
     if (defaultTargetPlatform == TargetPlatform.android) {
       final status = await ph.Permission.notification.status;
       if (!status.isGranted) await ph.Permission.notification.request();
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // iOS needs an explicit sound permission or the notification is silent.
+      // The local-notifications init requests none (requestSoundPermission:
+      // false), and this test path skips FirebaseMessaging, so request here.
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
     }
     await _localNotifications.show(
       424242, // fixed id: a repeat test replaces the previous test alert
