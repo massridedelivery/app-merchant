@@ -46,10 +46,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _init() async {
     try {
       final token = await _repository.currentToken();
-      final claims = token == null ? null : AuthClaims.tryParse(token);
+      var claims = token == null ? null : AuthClaims.tryParse(token);
+      var usable = claims != null && claims.isRestaurant && !claims.isExpired;
+
+      // The access token lives ~24h. If it is missing or expired but a refresh
+      // token is still on disk, refresh silently rather than sending the
+      // merchant back to login — so the session is "remembered" for as long as
+      // the (much longer-lived) refresh token is valid.
+      if (!usable) {
+        final refreshed = await _tryRefreshSession();
+        if (refreshed != null) {
+          claims = refreshed;
+          usable = refreshed.isRestaurant && !refreshed.isExpired;
+        }
+      }
+
       if (!mounted) return;
-      // An expired or non-restaurant token is treated as no session at all.
-      final usable = claims != null && claims.isRestaurant && !claims.isExpired;
       state = state.copyWith(
         isLoading: false,
         isAuthenticated: usable,
@@ -59,6 +71,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       if (!mounted) return;
       state = state.copyWith(isLoading: false, isAuthenticated: false);
+    }
+  }
+
+  /// Swaps a stored refresh token for a fresh session on startup. Returns the
+  /// new claims, or null when there is no refresh token or the server rejects
+  /// it (a real logout on another device, or an expired refresh token).
+  Future<AuthClaims?> _tryRefreshSession() async {
+    try {
+      final refreshToken = await _repository.currentRefreshToken();
+      if (refreshToken == null || refreshToken.isEmpty) return null;
+      final tokens = await _repository.refresh(refreshToken);
+      final claims = AuthClaims.tryParse(tokens.accessToken);
+      if (claims == null) return null;
+      await _repository.persistSession(tokens);
+      return claims;
+    } catch (_) {
+      return null;
     }
   }
 
