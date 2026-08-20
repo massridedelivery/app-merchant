@@ -34,6 +34,8 @@ class RestaurantProfileNotifier
     double? lat,
     double? lng,
     double? minOrderAmount,
+    String? logoFileKey,
+    String? coverFileKey,
   }) async {
     try {
       await _repository.updateProfile(
@@ -44,11 +46,19 @@ class RestaurantProfileNotifier
         lat: lat,
         lng: lng,
         minOrderAmount: minOrderAmount,
+        logoFileKey: logoFileKey,
+        coverFileKey: coverFileKey,
       );
     } catch (e) {
       throw AppFailure('ไม่สามารถบันทึกข้อมูลร้านได้', e);
     }
     if (!mounted || !state.hasValue) return;
+    // Images are sent as file_keys but read back as URLs; there's no local URL
+    // to fold in, so re-fetch to get the freshly-hosted logo/cover.
+    if (logoFileKey != null || coverFileKey != null) {
+      await fetchProfile();
+      return;
+    }
     state = AsyncValue.data(state.value!.copyWith(
       name: name,
       description: description,

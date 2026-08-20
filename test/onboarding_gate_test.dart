@@ -30,6 +30,8 @@ class _FakeRestaurantRepository extends RestaurantRepository {
     String? openingTime,
     String? closingTime,
     String? timezone,
+    String? logoFileKey,
+    String? coverFileKey,
   }) async {
     lastUpdate = {'name': name, 'address': address, 'lat': lat, 'lng': lng};
   }

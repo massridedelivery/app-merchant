@@ -19,6 +19,8 @@ class RestaurantRepository {
   ///
   /// The documented body has no phone or manager fields, so those stay
   /// read-only in the app even though the model carries them.
+  /// [logoFileKey] / [coverFileKey] are media `file_key`s (from MediaRepository,
+  /// category `restaurant`) — not URLs. Send them only when the image changed.
   Future<void> updateProfile({
     required String name,
     String? nameTh,
@@ -31,6 +33,8 @@ class RestaurantRepository {
     String? openingTime,
     String? closingTime,
     String? timezone,
+    String? logoFileKey,
+    String? coverFileKey,
   }) =>
       _api.dio.put('/api/food/restaurant/profile', data: {
         'restaurant_name': name,
@@ -45,6 +49,8 @@ class RestaurantRepository {
         'opening_time': ?openingTime,
         'closing_time': ?closingTime,
         'timezone': ?timezone,
+        'logo_url': ?logoFileKey,
+        'cover_image_url': ?coverFileKey,
       });
 
   // ─── Opening hours (SCRUM-63) ────────────────────────────────────────────
