@@ -32,13 +32,25 @@ class _FakeAuthRepository extends AuthRepository {
   _FakeAuthRepository() : super(ApiClient());
 
   String? storedToken;
+  String? storedRefreshToken;
   TokenPair? issued;
+  TokenPair? refreshIssued;
   Object? loginError;
+  Object? refreshError;
   bool loggedOut = false;
   bool sessionForgotten = false;
 
   @override
   Future<String?> currentToken() async => storedToken;
+
+  @override
+  Future<String?> currentRefreshToken() async => storedRefreshToken;
+
+  @override
+  Future<TokenPair> refresh(String refreshToken) async {
+    if (refreshError != null) throw refreshError!;
+    return refreshIssued ?? pair(jwt());
+  }
 
   @override
   Future<TokenPair> login({
@@ -124,6 +136,30 @@ void main() {
 
     test('an expired token is not a session', () async {
       repo.storedToken = jwt(expiry: DateTime(2020));
+      expect((await settled(boot())).isAuthenticated, isFalse);
+    });
+
+    test('an expired access token is refreshed when a refresh token exists',
+        () async {
+      repo.storedToken = jwt(expiry: DateTime(2020)); // expired access
+      repo.storedRefreshToken = 'valid-refresh';
+      repo.refreshIssued = pair(jwt()); // server returns a fresh session
+      final state = await settled(boot());
+      expect(state.isAuthenticated, isTrue);
+      expect(state.restaurantId, '9f1c0f6e-3b3a-4a1e-9c2d-6a5e4b3c2d10');
+      expect(repo.storedToken, isNotNull, reason: 'new access token persisted');
+    });
+
+    test('an expired access token with no refresh token stays logged out',
+        () async {
+      repo.storedToken = jwt(expiry: DateTime(2020));
+      expect((await settled(boot())).isAuthenticated, isFalse);
+    });
+
+    test('a rejected refresh token stays logged out', () async {
+      repo.storedToken = jwt(expiry: DateTime(2020));
+      repo.storedRefreshToken = 'expired-refresh';
+      repo.refreshError = Exception('401 refresh rejected');
       expect((await settled(boot())).isAuthenticated, isFalse);
     });
 

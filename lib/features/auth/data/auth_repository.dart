@@ -92,6 +92,8 @@ class AuthRepository {
 
   Future<String?> currentToken() => _api.readToken();
 
+  Future<String?> currentRefreshToken() => _api.readRefreshToken();
+
   Future<void> persistSession(TokenPair tokens) => _api.saveSession(
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
