@@ -45,11 +45,19 @@ class DashboardScreen extends ConsumerWidget {
 
                   // ─── Operational Controls & Quick Glance ────────
                   _buildOperationalSection(context, ref, profile),
+
+                  // ─── Verification banner ─────────────────────────
+                  // Moved here (from the top app shell) to sit under the
+                  // store-management section.
+                  if (!profile.isVerified) ...[
+                    const SizedBox(height: 12),
+                    _buildVerificationBanner(profile),
+                  ],
                   const SizedBox(height: 32),
 
-                  // ─── Action Hub (Quick Grid) ─────────────────────
-                  _buildActionHub(context, ref),
-                  const SizedBox(height: 32),
+                  // ─── Action Hub (Quick Grid) — hidden for now ────
+                  // _buildActionHub(context, ref),
+                  // const SizedBox(height: 32),
 
                   // ─── Personalized Section ──────────────────
                   _buildPersonalizedSection(),
@@ -402,6 +410,47 @@ class DashboardScreen extends ConsumerWidget {
 
   // ─── ACTION HUB ─────────────────────────────────────────────────────────────
 
+  Widget _buildVerificationBanner(RestaurantProfile profile) {
+    final rejected = profile.verificationStatus == 'REJECTED';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        color: rejected
+            ? AppColors.semanticErrorFgHigh.withValues(alpha: 0.1)
+            : const Color(0xFFFEF9C3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          AppIcon(
+            AppIcons.circleInformationLine,
+            size: 16,
+            color: rejected
+                ? AppColors.semanticErrorFgHigh
+                : const Color(0xFFA16207),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              rejected
+                  ? 'เอกสารยืนยันร้านไม่ผ่าน กรุณาส่งใหม่'
+                  : 'อยู่ระหว่างตรวจสอบเอกสารยืนยันร้าน',
+              style: AppTypography.caption5.copyWith(
+                color: rejected
+                    ? AppColors.semanticErrorFgHigh
+                    : const Color(0xFFA16207),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hidden for now (call commented out above); kept for easy re-enable.
+  // ignore: unused_element
   Widget _buildActionHub(BuildContext context, WidgetRef ref) {
     final items = [
       _QuickItem(
