@@ -5,6 +5,7 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/ads/presentation/screens/ads_screen.dart';
+import 'package:merchant_app/core/notifications/push_notification_service.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/finance/presentation/screens/bank_account_screen.dart';
@@ -212,6 +213,23 @@ class ProfileScreen extends ConsumerWidget {
                         context,
                         MaterialPageRoute(builder: (_) => const AdsScreen()),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMenuCard(
+                      icon: AppIcons.notification,
+                      title: 'ทดสอบเสียงออเดอร์ใหม่',
+                      subtitle: 'เล่นเสียงแจ้งเตือนออเดอร์เข้าเพื่อทดสอบ',
+                      onTap: () async {
+                        await PushNotificationService.instance
+                            .playTestOrderAlert();
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('กำลังเล่นเสียงแจ้งเตือนออเดอร์ใหม่'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 48),
 

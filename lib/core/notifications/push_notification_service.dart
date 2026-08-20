@@ -208,6 +208,48 @@ class PushNotificationService {
     _navigateTo(_routeFor(message));
   }
 
+  /// Fires the loud new-order alert locally so the merchant can test the sound
+  /// (and vibration / full-screen) without waiting for a real backend push.
+  ///
+  /// Deliberately avoids [init]/[requestNotificationPermission] because those
+  /// touch `FirebaseMessaging.instance`, which throws in a build without
+  /// Firebase configured (e.g. the mock dev build). This is a *local*
+  /// notification, so it only needs the local plugin + the OS permission.
+  Future<void> playTestOrderAlert() async {
+    await _initLocalNotifications();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      final status = await ph.Permission.notification.status;
+      if (!status.isGranted) await ph.Permission.notification.request();
+    }
+    await _localNotifications.show(
+      424242, // fixed id: a repeat test replaces the previous test alert
+      'ออเดอร์ใหม่ (ทดสอบ)',
+      'ทดสอบเสียงแจ้งเตือนออเดอร์เข้า',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _orderChannel.id,
+          _orderChannel.name,
+          channelDescription: _orderChannel.description,
+          icon: '@mipmap/ic_launcher',
+          importance: Importance.max,
+          priority: Priority.max,
+          category: AndroidNotificationCategory.call,
+          fullScreenIntent: true,
+          sound: const RawResourceAndroidNotificationSound('order_alert'),
+          playSound: true,
+          audioAttributesUsage: AudioAttributesUsage.alarm,
+        ),
+        iOS: const DarwinNotificationDetails(
+          sound: 'order_alert.caf',
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      payload: '/',
+    );
+  }
+
   /// Clears delivered notifications — also stops the order-alert sound if it is
   /// still ringing. Call when the merchant acts on the order.
   Future<void> cancelOrderAlerts() async {

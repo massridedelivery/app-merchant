@@ -147,6 +147,18 @@ class MockInterceptor extends Interceptor {
       ));
     }
 
+    // ─── MENU: MERCHANT READ (categories + nested items) ────
+    // GET /api/food/restaurant/{id}/menu — the merchant menu screen's read.
+    // Matches after the customer path above so it only catches the merchant
+    // form (/restaurants/ plural never matches /restaurant/).
+    if (path.contains('/restaurant/') && path.endsWith('/menu')) {
+      return handler.resolve(Response(
+        requestOptions: options,
+        data: _mockMenuData(),
+        statusCode: 200,
+      ));
+    }
+
     // ─── MENU: MERCHANT CATEGORIES ──────────────────────────
     if (path.contains('/restaurant/menu/categories')) {
       if (method == 'POST') {
