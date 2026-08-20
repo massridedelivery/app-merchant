@@ -146,7 +146,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     };
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

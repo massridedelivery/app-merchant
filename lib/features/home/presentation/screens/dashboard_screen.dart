@@ -85,7 +85,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
       child: Row(
         children: [
           Container(
