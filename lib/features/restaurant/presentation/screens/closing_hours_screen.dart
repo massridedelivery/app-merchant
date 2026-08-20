@@ -34,6 +34,8 @@ class ClosingHoursScreen extends StatelessWidget {
         ),
       ),
       body: SingleChildScrollView(
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewPadding.bottom),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
