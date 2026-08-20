@@ -158,8 +158,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             onMapCreated: (c) => _mapController = c,
             onCameraMove: (pos) => _center = pos.target,
             onCameraIdle: _resolveAddress,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+            // No device-location permission by design: the merchant pins the
+            // store by panning the map (the centre pin) and we reverse-geocode
+            // that point — GPS isn't needed, so we don't ask for it.
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
           ),
