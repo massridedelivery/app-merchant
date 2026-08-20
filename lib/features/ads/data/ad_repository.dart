@@ -9,11 +9,13 @@ class AdRepository {
   final ApiClient _api;
 
   /// Returns null when the restaurant has no campaign yet — the API answers
-  /// 404 rather than an empty body.
+  /// either a 404 or a 200 with a `null` body.
   Future<AdCampaign?> fetchAd() async {
     try {
       final response = await _api.dio.get('/api/food/restaurant/ads');
-      return AdCampaign.fromJson(response.data as Map<String, dynamic>);
+      final data = response.data;
+      if (data == null) return null;
+      return AdCampaign.fromJson(data as Map<String, dynamic>);
     } on DioException catch (e) {
       if (e.response?.statusCode == 404) return null;
       rethrow;

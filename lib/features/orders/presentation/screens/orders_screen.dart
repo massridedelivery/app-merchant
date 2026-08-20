@@ -137,6 +137,13 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
     bool isOpen,
     AsyncValue<RestaurantProfile> profileAsync,
   ) {
+    // Status colour: open = green, busy = amber, paused/closed = red.
+    final status = profileAsync.valueOrNull?.status ?? RestaurantStatus.paused;
+    final statusColor = switch (status) {
+      RestaurantStatus.open => AppColors.success,
+      RestaurantStatus.busy => AppColors.warning,
+      RestaurantStatus.paused => AppColors.semanticErrorFgHigh,
+    };
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
@@ -177,22 +184,18 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: isOpen ? Colors.white : const Color(0xFFF1F5F9),
+                    color: statusColor.withValues(alpha: 0.08),
                     border: Border.all(
-                      color: isOpen
-                          ? AppColors.primary.withOpacity(0.5)
-                          : const Color(0xFFE2E8F0),
+                      color: statusColor.withValues(alpha: 0.5),
                     ),
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: isOpen
-                        ? [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.1),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : [],
+                    boxShadow: [
+                      BoxShadow(
+                        color: statusColor.withValues(alpha: 0.12),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
@@ -200,9 +203,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: isOpen
-                              ? AppColors.primary
-                              : const Color(0xFF94A3B8),
+                          color: statusColor,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -210,9 +211,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                       Text(
                         statusLabel,
                         style: AppTypography.label3.copyWith(
-                          color: isOpen
-                              ? AppColors.primary
-                              : const Color(0xFF475569),
+                          color: statusColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),

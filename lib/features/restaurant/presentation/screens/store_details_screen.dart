@@ -141,7 +141,8 @@ class StoreDetailsScreen extends ConsumerWidget {
 
               // ─── Share Button ──────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                padding: EdgeInsets.fromLTRB(
+                    16, 0, 16, 32 + MediaQuery.of(context).viewPadding.bottom),
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(

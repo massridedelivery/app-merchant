@@ -120,7 +120,8 @@ class _OpeningHoursScreenState extends ConsumerState<OpeningHoursScreen> {
           // ─── Save Button ──────────────────────────────
           Container(
             color: Colors.white,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+            padding: EdgeInsets.fromLTRB(
+                16, 12, 16, 32 + MediaQuery.of(context).viewPadding.bottom),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
