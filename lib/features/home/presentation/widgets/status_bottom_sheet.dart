@@ -35,7 +35,10 @@ class _StatusBottomSheetState extends State<StatusBottomSheet> {
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      // Bottom padding clears the system nav (3-button bar) so the last button
+      // isn't cut off / overflowing on Android.
+      padding: EdgeInsets.fromLTRB(
+          20, 16, 20, 24 + MediaQuery.of(context).viewPadding.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -65,7 +65,9 @@ class _LinkModifierGroupSheetState
     final categories = ref.watch(menuProvider).value ?? const <MenuCategory>[];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      // Clear the system nav so the last button isn't cut off on Android.
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, 24 + MediaQuery.of(context).viewPadding.bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,

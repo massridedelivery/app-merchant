@@ -775,6 +775,7 @@ class DashboardScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (_) => StatusBottomSheet(
         currentStatus: profile.status,
         onStatusChanged: (s) =>

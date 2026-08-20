@@ -159,6 +159,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                   showModalBottomSheet(
                     context: context,
                     backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
                     builder: (_) => StatusBottomSheet(
                       currentStatus: profile.status,
                       onStatusChanged: (s) => runGuarded(
