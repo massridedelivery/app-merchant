@@ -7,6 +7,11 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      // Brand default so every screen matches the home page: any Text/TextStyle
+      // that doesn't go through AppTypography inherits the body font (Ibm) with
+      // the Thai fallback, instead of falling back to Roboto.
+      fontFamily: 'Ibm',
+      fontFamilyFallback: const ['NotoSansThai'],
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         onPrimary: Colors.white,
