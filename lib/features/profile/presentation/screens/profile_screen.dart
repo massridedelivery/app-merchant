@@ -8,6 +8,7 @@ import 'package:merchant_app/features/ads/presentation/screens/ads_screen.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/finance/presentation/screens/bank_account_screen.dart';
+import 'package:merchant_app/features/finance/presentation/screens/withdraw_screen.dart';
 import 'package:merchant_app/features/restaurant/presentation/screens/closing_hours_screen.dart';
 import 'package:merchant_app/features/restaurant/presentation/screens/store_details_screen.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
@@ -182,11 +183,23 @@ class ProfileScreen extends ConsumerWidget {
                     _buildMenuCard(
                       icon: AppIcons.buildingLine,
                       title: 'บัญชีธนาคาร',
-                      subtitle: 'จัดการการรับเงินและขอถอนเงิน',
+                      subtitle: 'จัดการบัญชีรับเงิน',
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => const BankAccountScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMenuCard(
+                      icon: AppIcons.cardLine,
+                      title: 'แจ้งถอนเงิน',
+                      subtitle: 'ถอนรายได้เข้าบัญชีธนาคาร',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const WithdrawScreen(),
                         ),
                       ),
                     ),
