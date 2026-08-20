@@ -119,34 +119,33 @@ bundle exec fastlane ios certificates   # creates + stores App Store cert/profil
 
 ### Firebase / push
 
-The eleven `APP_ANDROID_FIREBASE_*` and `APP_IOS_FIREBASE_*` keys are present
-in both env files but **empty**, so push is off: `main.dart` only calls
-`Firebase.initializeApp` when `appId` and `projectId` are both non-empty, and
-otherwise logs `Firebase options empty (no --dart-define) — push off`. The app
-runs normally without them; only FCM is inert.
+`env/dev.json` carries the real values for the **dev-merchant-4619a** project
+(project number 206020784191), so debug builds get working FCM.
+`env/prod.json` still holds empty strings: no production Firebase project
+exists yet, and push is simply off there.
 
-Leave the blanks as empty strings until the real values exist. A dummy value
-such as `CHANGE_ME` is worse than nothing — it satisfies the guard, so
-`initializeApp` runs with a bogus config and iOS aborts on an uncatchable
-Objective-C exception at launch.
+Leave unknown values as empty strings. `main.dart` only calls
+`Firebase.initializeApp` when `appId` and `projectId` are both non-empty, so
+blanks disable push cleanly. A dummy value such as `CHANGE_ME` is worse than
+nothing — it satisfies the guard, so init runs with a bogus config and iOS
+aborts on an uncatchable Objective-C exception at launch.
 
-Fill them from the Firebase console once a merchant app is registered.
+The dev registration covers the `.dev` variants only:
+
+| Platform | Registered in Firebase | Produced by |
+| --- | --- | --- |
+| Android | `com.mass.merchant_app.dev` | debug builds (`applicationIdSuffix`) |
+| iOS | `com.mass.merchantApp.dev` | Debug config, and `tool/deploy_dev.sh` |
+
+Release builds ship `com.mass.merchant_app` / `com.mass.merchantApp`, which are
+not registered in the dev project — expected, since they read `env/prod.json`
+and have push off anyway. Registering a production Firebase app means filling
+`env/prod.json` and nothing else; no workflow changes.
+
 `apiKey` and `appId` are per-app; `messagingSenderId`, `projectId` and
-`storageBucket` are per-project and shared by every app inside it. For
-reference, the driver app keeps the same eleven keys in
-`config/mass_dev.json` / `config/mass_prod.json` against the separate
-`dev-driver-43965` and `prod-driver` projects. `APP_IOS_FIREBASE_BUNDLE_ID` is
-already filled in with the bundle id each build actually ships under.
-
-Defaults apply when a build passes no env file: the mock interceptor is on and
-the host is `localhost:8080`. That is why a bare `flutter run` behaves very
-differently from `make run`.
-
-**`env/prod.json` deliberately holds the dev host.** No production backend
-exists yet, and no workflow secret overrides the file, so
-`flutter build appbundle` in `release-android.yml` and `flutter build ipa` in
-`ios/fastlane/Fastfile` both ship against `driver-api-dev.nutchaphut.dev`.
-Point the file at production before the first real store release.
+`storageBucket` are per-project. Values come from `google-services.json`
+(Android) and `GoogleService-Info.plist` (iOS) — neither file is committed, the
+defines replace them.
 
 ## Notes / prerequisites
 

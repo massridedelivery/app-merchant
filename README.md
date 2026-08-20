@@ -88,9 +88,11 @@ Builds pass config via `--dart-define-from-file`:
 through `String.fromEnvironment`, so a build with no env file falls back to the
 in-app mock against `localhost:8080`.
 
-The Firebase keys in both files are intentionally blank — push stays off until
-someone fills them in, and a placeholder value would crash iOS at launch rather
-than disable push. See [`docs/CICD_SETUP.md`](docs/CICD_SETUP.md).
+`env/dev.json` carries real Firebase credentials for the `dev-merchant-4619a`
+project, so debug builds have working push. The same keys in `env/prod.json`
+are intentionally blank — push stays off until a production Firebase project
+exists, and a placeholder value there would crash iOS at launch rather than
+disable push. See [`docs/CICD_SETUP.md`](docs/CICD_SETUP.md).
 
 > **`env/prod.json` currently points at the dev host on purpose.** There is no
 > production backend yet, and nothing in CI overrides the file, so release
