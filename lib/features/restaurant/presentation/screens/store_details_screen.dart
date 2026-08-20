@@ -6,7 +6,7 @@ import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
 import 'package:merchant_app/features/restaurant/providers/restaurant_provider.dart';
 import 'package:merchant_app/features/restaurant/presentation/screens/closing_hours_screen.dart';
-import 'package:merchant_app/features/restaurant/presentation/widgets/edit_store_profile_dialog.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/edit_store_screen.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
@@ -35,11 +35,7 @@ class StoreDetailsScreen extends ConsumerWidget {
           if (profileAsync.hasValue)
             IconButton(
               tooltip: 'แก้ไขข้อมูลร้าน',
-              onPressed: () => showDialog(
-                context: context,
-                builder: (_) =>
-                    EditStoreProfileDialog(profile: profileAsync.value!),
-              ),
+              onPressed: () => _openEditor(context, profileAsync.value!),
               icon: const AppIcon(
                 AppIcons.pencilFill,
                 size: 20,
@@ -65,11 +61,13 @@ class StoreDetailsScreen extends ConsumerWidget {
                   _buildPhotoRow(
                     label: 'รูปหน้าปกร้าน',
                     imageUrl: profile.coverImageUrl,
+                    onTap: () => _openEditor(context, profile),
                   ),
                   const Divider(height: 24, color: Color(0xFFF0F0F0)),
                   _buildPhotoRow(
                     label: 'รูปประจำร้าน (โลโก้)',
                     imageUrl: profile.logoUrl,
+                    onTap: () => _openEditor(context, profile),
                   ),
                 ],
               ),
@@ -137,31 +135,18 @@ class StoreDetailsScreen extends ConsumerWidget {
                   _buildOtpRow(context),
                 ],
               ),
-              const SizedBox(height: 16),
-
-              // ─── Share Button ──────────────────────────────
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                    16, 0, 16, 32 + MediaQuery.of(context).viewPadding.bottom),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    icon: const AppIcon(AppIcons.share, color: Color(0xFFE5002B)),
-                    label: const Text('แชร์ลิงก์ร้าน Grab',
-                        style: TextStyle(color: Color(0xFFE5002B), fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFFE5002B), width: 1.5),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () {},
-                  ),
-                ),
-              ),
+              SizedBox(height: 32 + MediaQuery.of(context).viewPadding.bottom),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  void _openEditor(BuildContext context, RestaurantProfile profile) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => EditStoreScreen(profile: profile)),
     );
   }
 
@@ -217,28 +202,33 @@ class StoreDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPhotoRow({required String label, String? imageUrl}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: AppTypography.body2.copyWith(color: const Color(0xFF333333))),
-        Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: imageUrl != null
-                  ? Image.network(imageUrl, width: 40, height: 40, fit: BoxFit.cover)
-                  : Container(
-                      width: 40, height: 40,
-                      color: const Color(0xFFF0F0F0),
-                      child: const AppIcon(AppIcons.photoLine, color: Color(0xFFBBBBBB)),
-                    ),
-            ),
-            const SizedBox(width: 8),
-            const AppIcon(AppIcons.chevronRightLine, color: Color(0xFF888888)),
-          ],
-        ),
-      ],
+  Widget _buildPhotoRow(
+      {required String label, String? imageUrl, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: AppTypography.body2.copyWith(color: const Color(0xFF333333))),
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: imageUrl != null
+                    ? Image.network(imageUrl, width: 40, height: 40, fit: BoxFit.cover)
+                    : Container(
+                        width: 40, height: 40,
+                        color: const Color(0xFFF0F0F0),
+                        child: const AppIcon(AppIcons.photoLine, color: Color(0xFFBBBBBB)),
+                      ),
+              ),
+              const SizedBox(width: 8),
+              const AppIcon(AppIcons.chevronRightLine, color: Color(0xFF888888)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
