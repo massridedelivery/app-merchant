@@ -6,6 +6,7 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:merchant_app/features/finance/data/finance_repository.dart';
+import 'package:merchant_app/features/finance/data/payout_settings.dart';
 import 'package:merchant_app/features/finance/models/finance.dart';
 import 'package:merchant_app/features/finance/presentation/screens/bank_account_screen.dart';
 import 'package:merchant_app/features/finance/providers/finance_provider.dart';
@@ -22,6 +23,10 @@ class WithdrawScreen extends ConsumerStatefulWidget {
 
 class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   static const double _min = 100;
+  // Registered payout account. Matches [BankAccountScreen]; both should read
+  // from a bank-account endpoint once one exists (SCRUM-60).
+  static const String _bankName = 'ธนาคารไทยพาณิชย์ (SCB)';
+  static const String _bankAccountMasked = '•••• 1234';
   final _amountController = TextEditingController();
   bool _submitting = false;
 
@@ -43,7 +48,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       _snack('ยอดเงินคงเหลือไม่พอ', AppColors.semanticErrorFgHigh);
       return;
     }
-    final ok = await _confirmDialog(amount);
+    final ok = await _confirmSheet(amount);
     if (ok != true) return;
 
     setState(() => _submitting = true);
@@ -67,25 +72,180 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     );
   }
 
-  Future<bool?> _confirmDialog(double amount) => showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('ยืนยันการถอนเงิน'),
-          content: Text(
-            'ถอนเงินจำนวน ฿${amount.toStringAsFixed(2)} '
-            'เข้าบัญชีธนาคารที่ลงทะเบียนไว้\n\n'
-            'ระบบจะโอนภายใน 1–2 วันทำการ',
+  /// Grab/LINEMAN-style confirmation: a bottom sheet showing the amount, the
+  /// fee/net breakdown, and the destination account before committing.
+  Future<bool?> _confirmSheet(double amount) {
+    final quote = WithdrawalQuote.of(amount);
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 12, 20,
+              20 + MediaQuery.of(sheetContext).viewPadding.bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('ยืนยันการถอนเงิน',
+                  style: AppTypography.heading6
+                      .copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _breakdown(quote),
+              const SizedBox(height: 16),
+              _sheetBankRow(),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.schedule,
+                      size: 16, color: AppColors.semanticGrayNeutralFgMidOnWhite),
+                  const SizedBox(width: 6),
+                  Text('โอนเข้าบัญชีภายใน 1–2 วันทำการ',
+                      style: AppTypography.caption5.copyWith(
+                          color: AppColors.semanticGrayNeutralFgMidOnWhite)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(sheetContext, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('ยกเลิก',
+                          style: AppTypography.label2.copyWith(
+                              color: AppColors.semanticGrayNeutralFgHigh)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(sheetContext, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('ยืนยันถอน ฿${quote.net.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('ยกเลิก')),
-            ElevatedButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('ยืนยัน')),
-          ],
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _breakdown(WithdrawalQuote q) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          _breakdownRow('ยอดที่ขอถอน', '฿${q.amount.toStringAsFixed(2)}'),
+          const SizedBox(height: 10),
+          _breakdownRow(
+            'ค่าธรรมเนียม',
+            q.isFree ? 'ฟรี' : '-฿${q.fee.toStringAsFixed(2)}',
+            valueColor: q.isFree ? AppColors.success : null,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+          ),
+          _breakdownRow(
+            'ยอดที่จะได้รับ',
+            '฿${q.net.toStringAsFixed(2)}',
+            emphasize: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _breakdownRow(String label, String value,
+      {bool emphasize = false, Color? valueColor}) {
+    final labelStyle = emphasize
+        ? AppTypography.label2.copyWith(
+            color: AppColors.semanticGrayNeutralFgHigh,
+            fontWeight: FontWeight.bold)
+        : AppTypography.body2.copyWith(
+            color: AppColors.semanticGrayNeutralFgMidOnWhite);
+    final valueStyle = emphasize
+        ? AppTypography.heading6.copyWith(
+            color: AppColors.primary, fontWeight: FontWeight.w900)
+        : AppTypography.label3.copyWith(
+            color: valueColor ?? AppColors.semanticGrayNeutralFgHigh,
+            fontWeight: FontWeight.bold);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: labelStyle),
+        Text(value, style: valueStyle),
+      ],
+    );
+  }
+
+  Widget _sheetBankRow() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance, color: AppColors.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('เข้าบัญชี',
+                    style: AppTypography.caption5.copyWith(
+                        color: AppColors.semanticGrayNeutralFgMidOnWhite)),
+                const SizedBox(height: 2),
+                Text('$_bankName $_bankAccountMasked',
+                    style: AppTypography.label3.copyWith(
+                        color: AppColors.semanticGrayNeutralFgHigh,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _successDialog(double amount) => showDialog<void>(
         context: context,
@@ -162,13 +322,17 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 .copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
         const SizedBox(height: 8),
         _amountField(),
+        if (_amount >= _min) _netHint(),
         const SizedBox(height: 12),
         _presets(available),
         const SizedBox(height: 20),
         _bankRow(),
+        const SizedBox(height: 12),
+        _autoPayoutCard(),
         const SizedBox(height: 20),
         _infoRow('ถอนขั้นต่ำ ฿100 ต่อครั้ง'),
         _infoRow('โอนเข้าบัญชีภายใน 1–2 วันทำการ'),
+        _infoRow('ไม่มีค่าธรรมเนียมการถอน'),
         _infoRow('ทำรายการถอนได้ครั้งละ 1 คำขอ'),
         const SizedBox(height: 24),
         _historySection(),
@@ -238,6 +402,61 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
       decoration: const InputDecoration(
         prefixText: '฿ ',
         hintText: '0',
+      ),
+    );
+  }
+
+  Widget _netHint() {
+    final q = WithdrawalQuote.of(_amount);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        'ยอดที่จะได้รับ ฿${q.net.toStringAsFixed(2)}'
+        '${q.isFree ? ' · ไม่มีค่าธรรมเนียม' : ''}',
+        style: AppTypography.caption5.copyWith(color: AppColors.success),
+      ),
+    );
+  }
+
+  Widget _autoPayoutCard() {
+    final settings = ref.watch(payoutSettingsProvider);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.autorenew, color: AppColors.primary, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('โอนเงินอัตโนมัติทุกสัปดาห์',
+                    style: AppTypography.label3.copyWith(
+                        color: AppColors.semanticGrayNeutralFgHigh,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text(
+                  settings.autoPayout
+                      ? 'โอนยอดคงเหลืออัตโนมัติทุกวันจันทร์ · จะเริ่มมีผลเมื่อระบบเปิดให้บริการ'
+                      : 'ให้ระบบโอนยอดคงเหลือเข้าบัญชีให้อัตโนมัติ',
+                  style: AppTypography.caption5.copyWith(
+                      color: AppColors.semanticGrayNeutralFgMidOnWhite),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: settings.autoPayout,
+            activeColor: AppColors.primary,
+            onChanged: (v) =>
+                ref.read(payoutSettingsProvider.notifier).setAutoPayout(v),
+          ),
+        ],
       ),
     );
   }

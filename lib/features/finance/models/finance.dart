@@ -152,6 +152,26 @@ class TransactionsPage {
       );
 }
 
+/// The money side of a withdrawal: what the merchant asked for, the fee, and
+/// what actually lands in the bank. Standard payout is free (like Grab's weekly
+/// transfer), so [fee] defaults to 0. When the backend starts returning a fee
+/// (e.g. an instant-payout charge), compute it in [WithdrawalQuote.of] instead
+/// of hard-coding zero — the UI already renders whatever this reports.
+class WithdrawalQuote {
+  final double amount;
+  final double fee;
+
+  const WithdrawalQuote({required this.amount, required this.fee});
+
+  double get net => (amount - fee).clamp(0, double.infinity);
+
+  bool get isFree => fee <= 0;
+
+  /// Standard (free) payout quote for [amount].
+  factory WithdrawalQuote.of(double amount) =>
+      WithdrawalQuote(amount: amount, fee: 0);
+}
+
 /// One entry in `GET /restaurant/withdrawals`. Parsed leniently (empty at
 /// integration time).
 class WithdrawalRequest {
