@@ -115,6 +115,28 @@ bundle exec fastlane ios certificates   # creates + stores App Store cert/profil
 | `WS_URL` | `SocketService.wsUrl` |
 | `USE_MOCK` | `ApiClient.useMock` — `true` serves canned data offline |
 | `ENV` | nothing yet |
+| `APP_*_FIREBASE_*` | `DefaultFirebaseOptions` in `lib/firebase_options.dart` |
+
+### Firebase / push
+
+The eleven `APP_ANDROID_FIREBASE_*` and `APP_IOS_FIREBASE_*` keys are present
+in both env files but **empty**, so push is off: `main.dart` only calls
+`Firebase.initializeApp` when `appId` and `projectId` are both non-empty, and
+otherwise logs `Firebase options empty (no --dart-define) — push off`. The app
+runs normally without them; only FCM is inert.
+
+Leave the blanks as empty strings until the real values exist. A dummy value
+such as `CHANGE_ME` is worse than nothing — it satisfies the guard, so
+`initializeApp` runs with a bogus config and iOS aborts on an uncatchable
+Objective-C exception at launch.
+
+Fill them from the Firebase console once a merchant app is registered.
+`apiKey` and `appId` are per-app; `messagingSenderId`, `projectId` and
+`storageBucket` are per-project and shared by every app inside it. For
+reference, the driver app keeps the same eleven keys in
+`config/mass_dev.json` / `config/mass_prod.json` against the separate
+`dev-driver-43965` and `prod-driver` projects. `APP_IOS_FIREBASE_BUNDLE_ID` is
+already filled in with the bundle id each build actually ships under.
 
 Defaults apply when a build passes no env file: the mock interceptor is on and
 the host is `localhost:8080`. That is why a bare `flutter run` behaves very
