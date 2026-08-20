@@ -59,6 +59,16 @@ final FlutterLocalNotificationsPlugin _localNotifications =
 bool _isNewOrder(RemoteMessage message) =>
     message.data['type'] == 'new_food_order';
 
+/// A payout push — the money for a withdrawal has been transferred (or the
+/// request was updated). `data.type` is the contract key agreed with the
+/// backend (SCRUM-60): one of `withdrawal_completed` / `withdrawal_paid` /
+/// `withdrawal_rejected` / `withdrawal_update`. Tapping it lands on the
+/// Finance tab so the merchant sees the updated balance and history.
+bool _isWithdrawal(RemoteMessage message) {
+  final type = message.data['type'];
+  return type is String && type.startsWith('withdrawal');
+}
+
 /// Where a tapped notification should land. Order pushes open the app home
 /// (orders live there); everything else opens home too.
 String _routeFor(RemoteMessage message) {
@@ -185,6 +195,13 @@ class PushNotificationService {
       // order id for the list to highlight/open.
       pendingOrderId = message.data['order_id'] as String?;
       pendingTabIndex = 1;
+      appRouter?.go('/');
+      return;
+    }
+    if (_isWithdrawal(message)) {
+      // Land on the Finance tab (index 3) so the updated balance + withdrawal
+      // history are front and centre.
+      pendingTabIndex = 3;
       appRouter?.go('/');
       return;
     }
