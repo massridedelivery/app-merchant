@@ -119,33 +119,35 @@ bundle exec fastlane ios certificates   # creates + stores App Store cert/profil
 
 ### Firebase / push
 
-`env/dev.json` carries the real values for the **dev-merchant-4619a** project
-(project number 206020784191), so debug builds get working FCM.
-`env/prod.json` still holds empty strings: no production Firebase project
-exists yet, and push is simply off there.
+Both env files now carry real credentials, against two separate projects:
 
-Leave unknown values as empty strings. `main.dart` only calls
-`Firebase.initializeApp` when `appId` and `projectId` are both non-empty, so
-blanks disable push cleanly. A dummy value such as `CHANGE_ME` is worse than
-nothing — it satisfies the guard, so init runs with a bogus config and iOS
-aborts on an uncatchable Objective-C exception at launch.
+| File | Firebase project | Project number | Android package | iOS bundle |
+| --- | --- | --- | --- | --- |
+| `env/dev.json` | `dev-merchant-4619a` | 206020784191 | `com.mass.merchant_app.dev` | `com.mass.merchantApp.dev` |
+| `env/prod.json` | `prod-merchant-8d684` | 812699956693 | `com.mass.merchant_app` | `com.mass.merchantApp` |
 
-The dev registration covers the `.dev` variants only:
-
-| Platform | Registered in Firebase | Produced by |
-| --- | --- | --- |
-| Android | `com.mass.merchant_app.dev` | debug builds (`applicationIdSuffix`) |
-| iOS | `com.mass.merchantApp.dev` | Debug config, and `tool/deploy_dev.sh` |
-
-Release builds ship `com.mass.merchant_app` / `com.mass.merchantApp`, which are
-not registered in the dev project — expected, since they read `env/prod.json`
-and have push off anyway. Registering a production Firebase app means filling
-`env/prod.json` and nothing else; no workflow changes.
+The registered ids match what each build actually produces: debug builds add
+`.dev` (via `applicationIdSuffix` on Android, the Debug configuration on iOS,
+and `tool/deploy_dev.sh` for TestFlight), release builds drop it.
 
 `apiKey` and `appId` are per-app; `messagingSenderId`, `projectId` and
 `storageBucket` are per-project. Values come from `google-services.json`
 (Android) and `GoogleService-Info.plist` (iOS) — neither file is committed, the
 defines replace them.
+
+If a value is ever unknown, leave it as an empty string. `main.dart` only calls
+`Firebase.initializeApp` when `appId` and `projectId` are both non-empty, so
+blanks disable push cleanly. A dummy value such as `CHANGE_ME` is worse than
+nothing — it satisfies the guard, so init runs with a bogus config and iOS
+aborts on an uncatchable Objective-C exception at launch.
+
+> **Release builds are now internally inconsistent.** `env/prod.json` pairs the
+> production Firebase project with `API_BASE_URL` still pointing at
+> `driver-api-dev.nutchaphut.dev`. A release build therefore registers its FCM
+> token under sender 812699956693 and hands it to the dev backend, which pushes
+> through whichever project *it* is configured with — a sender mismatch means
+> those pushes are rejected. Point `API_BASE_URL` at the production host before
+> relying on push in a release build.
 
 ## Notes / prerequisites
 
