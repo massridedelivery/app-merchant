@@ -1,5 +1,4 @@
 import 'dart:io' show Platform;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,46 +131,35 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   /// blocks — unlike the coordinates gate, an unverified restaurant can still
   /// use the app while paperwork is reviewed.
   Widget _buildFloatingPill(int currentIndex) {
-    return Stack(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.bottomCenter,
       children: [
-        // Pill Background
+        // Pill Background — solid frosted off-white (no BackdropFilter blur,
+        // for smoothness on low-end devices).
         Container(
           height: 64,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.92),
-            borderRadius: BorderRadius.circular(32),
+            color: const Color(0xFFFCF9F8).withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(9999),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.4),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
             ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(32),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(32),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
-                    width: 0.5,
-                  ),
-                ),
-              ),
-            ),
           ),
         ),
         // Nav Items
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               _buildFloatingNavItem(
@@ -214,6 +202,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           ),
         ),
       ],
+        ),
+      ),
     );
   }
 
@@ -236,7 +226,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             // Floating Circle for Selected Tab
             if (isSelected)
               Positioned(
-                top: -10,
+                top: -8,
                 child: Container(
                   width: 40,
                   height: 40,
@@ -253,7 +243,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primaryDark.withValues(alpha: 0.2),
+                        color: AppColors.primary.withValues(alpha: 0.4),
                         blurRadius: 15,
                         offset: const Offset(0, 8),
                       ),
@@ -302,7 +292,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         child: Text(
                           label,
                           style: AppTypography.caption4.copyWith(
-                            color: AppColors.primaryDark,
+                            color: const Color(0xFF00236F),
                             fontWeight: FontWeight.bold,
                           ),
                         ),
