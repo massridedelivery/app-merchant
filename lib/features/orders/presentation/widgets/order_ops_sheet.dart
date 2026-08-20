@@ -63,7 +63,10 @@ class _OrderOpsSheetState extends ConsumerState<OrderOpsSheet> {
         left: 20,
         right: 20,
         top: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        // viewInsets = keyboard, viewPadding = system nav — clear both.
+        bottom: MediaQuery.of(context).viewInsets.bottom +
+            MediaQuery.of(context).viewPadding.bottom +
+            24,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

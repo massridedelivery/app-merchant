@@ -91,11 +91,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     children: _pages
                         .map(
                           (page) => Padding(
-                            // Reserve the floating-nav footprint + the device's
-                            // system-nav inset so no content hides behind it.
-                            padding: EdgeInsets.only(
-                              bottom: kFloatingNavReserve + bottomInset,
-                            ),
+                            // Reserve just the floating-nav footprint. Each tab
+                            // already wraps its body in a SafeArea, so the
+                            // system-nav inset is added there — adding it here
+                            // too would leave a big empty gap above the bar.
+                            padding: const EdgeInsets.only(
+                                bottom: kFloatingNavReserve),
                             child: page,
                           ),
                         )
