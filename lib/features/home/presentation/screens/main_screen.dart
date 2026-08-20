@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -58,6 +59,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // System nav inset (3-button bar / gesture pill). extendBody isn't used, but
     // viewPadding still reports the real inset even when padding is consumed.
     final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    // How high the floating bar sits. Android's inset is an opaque button/gesture
+    // bar the pill must clear, so add it. iOS's inset is only the thin, see-through
+    // home indicator (or 0 on Home-button devices) — safe to sit under, so the bar
+    // hugs the bottom instead of floating too high. Uses the real inset, never a
+    // hardcoded value, so gesture vs 3-button is handled automatically.
+    final navBottom =
+        Platform.isAndroid ? kFloatingNavGap + bottomInset : kFloatingNavGap;
 
     // A tapped new-order push routes to '/' and asks for the Orders tab; honour
     // it once, after this frame, then clear so it doesn't fire again.
@@ -107,11 +115,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ),
           ),
 
-          // Floating Nav Bar — lifted above the system nav (3-button/gesture).
+          // Floating Nav Bar — clears the opaque system nav on Android; hugs the
+          // bottom on iOS (see navBottom above).
           Positioned(
             left: 20,
             right: 20,
-            bottom: kFloatingNavGap + bottomInset,
+            bottom: navBottom,
             child: _buildFloatingPill(currentIndex),
           ),
         ],
