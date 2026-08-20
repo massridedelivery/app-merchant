@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/constants/layout.dart';
 import 'package:merchant_app/core/router/app_router_holder.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
@@ -54,6 +55,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     final currentIndex = ref.watch(navigationProvider);
     final profileAsync = ref.watch(restaurantProfileProvider);
+    // System nav inset (3-button bar / gesture pill). extendBody isn't used, but
+    // viewPadding still reports the real inset even when padding is consumed.
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
 
     // A tapped new-order push routes to '/' and asks for the Orders tab; honour
     // it once, after this frame, then clear so it doesn't fire again.
@@ -87,8 +91,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     children: _pages
                         .map(
                           (page) => Padding(
-                            padding: const EdgeInsets.only(bottom: 90),
-                            // Space for floating nav bar
+                            // Reserve the floating-nav footprint + the device's
+                            // system-nav inset so no content hides behind it.
+                            padding: EdgeInsets.only(
+                              bottom: kFloatingNavReserve + bottomInset,
+                            ),
                             child: page,
                           ),
                         )
@@ -99,11 +106,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ),
           ),
 
-          // Floating Nav Bar
+          // Floating Nav Bar — lifted above the system nav (3-button/gesture).
           Positioned(
             left: 20,
             right: 20,
-            bottom: 30,
+            bottom: kFloatingNavGap + bottomInset,
             child: _buildFloatingPill(currentIndex),
           ),
         ],
