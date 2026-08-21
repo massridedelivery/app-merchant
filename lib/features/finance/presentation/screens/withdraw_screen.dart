@@ -6,7 +6,6 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:merchant_app/features/finance/data/finance_repository.dart';
-import 'package:merchant_app/features/finance/data/payout_settings.dart';
 import 'package:merchant_app/features/finance/models/finance.dart';
 import 'package:merchant_app/features/finance/presentation/screens/bank_account_screen.dart';
 import 'package:merchant_app/features/finance/providers/finance_provider.dart';
@@ -23,10 +22,6 @@ class WithdrawScreen extends ConsumerStatefulWidget {
 
 class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   static const double _min = 100;
-  // Registered payout account. Matches [BankAccountScreen]; both should read
-  // from a bank-account endpoint once one exists (SCRUM-60).
-  static const String _bankName = 'ธนาคารไทยพาณิชย์ (SCB)';
-  static const String _bankAccountMasked = '•••• 1234';
   final _amountController = TextEditingController();
   bool _submitting = false;
 
@@ -38,17 +33,17 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
 
   double get _amount => double.tryParse(_amountController.text.trim()) ?? 0;
 
-  Future<void> _submit(double available) async {
+  Future<void> _submit(FinanceSummary summary) async {
     final amount = _amount;
     if (amount < _min) {
       _snack('ถอนขั้นต่ำ ฿${_min.toStringAsFixed(0)}', AppColors.semanticErrorFgHigh);
       return;
     }
-    if (amount > available) {
+    if (amount > summary.availableBalance) {
       _snack('ยอดเงินคงเหลือไม่พอ', AppColors.semanticErrorFgHigh);
       return;
     }
-    final ok = await _confirmSheet(amount);
+    final ok = await _confirmSheet(WithdrawalQuote.from(amount, summary));
     if (ok != true) return;
 
     setState(() => _submitting = true);
@@ -74,8 +69,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
 
   /// Grab/LINEMAN-style confirmation: a bottom sheet showing the amount, the
   /// fee/net breakdown, and the destination account before committing.
-  Future<bool?> _confirmSheet(double amount) {
-    final quote = WithdrawalQuote.of(amount);
+  Future<bool?> _confirmSheet(WithdrawalQuote quote) {
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -216,6 +210,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
   }
 
   Widget _sheetBankRow() {
+    final acc = ref.read(bankAccountProvider).valueOrNull;
+    final display = (acc != null && acc.isLinked)
+        ? '${acc.bankName} ${acc.accountNumberMasked}'
+        : 'บัญชีธนาคารที่ลงทะเบียนไว้';
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -235,7 +233,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                     style: AppTypography.caption5.copyWith(
                         color: AppColors.semanticGrayNeutralFgMidOnWhite)),
                 const SizedBox(height: 2),
-                Text('$_bankName $_bankAccountMasked',
+                Text(display,
                     style: AppTypography.label3.copyWith(
                         color: AppColors.semanticGrayNeutralFgHigh,
                         fontWeight: FontWeight.bold)),
@@ -322,7 +320,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                 .copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
         const SizedBox(height: 8),
         _amountField(),
-        if (_amount >= _min) _netHint(),
+        if (_amount >= _min) _netHint(s),
         const SizedBox(height: 12),
         _presets(available),
         const SizedBox(height: 20),
@@ -332,7 +330,9 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         const SizedBox(height: 20),
         _infoRow('ถอนขั้นต่ำ ฿100 ต่อครั้ง'),
         _infoRow('โอนเข้าบัญชีภายใน 1–2 วันทำการ'),
-        _infoRow('ไม่มีค่าธรรมเนียมการถอน'),
+        _infoRow(_hasFee(s)
+            ? 'มีค่าธรรมเนียม/ภาษีหัก ณ ที่จ่ายตอนถอน'
+            : 'ไม่มีค่าธรรมเนียมการถอน'),
         _infoRow('ทำรายการถอนได้ครั้งละ 1 คำขอ'),
         const SizedBox(height: 24),
         _historySection(),
@@ -406,20 +406,40 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
     );
   }
 
-  Widget _netHint() {
-    final q = WithdrawalQuote.of(_amount);
+  bool _hasFee(FinanceSummary s) =>
+      s.withdrawalFeeFlat > 0 ||
+      s.withdrawalFeeRate > 0 ||
+      s.withholdingTaxRate > 0;
+
+  Widget _netHint(FinanceSummary s) {
+    final q = WithdrawalQuote.from(_amount, s);
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Text(
         'ยอดที่จะได้รับ ฿${q.net.toStringAsFixed(2)}'
-        '${q.isFree ? ' · ไม่มีค่าธรรมเนียม' : ''}',
+        '${q.isFree ? ' · ไม่มีค่าธรรมเนียม' : ' · ค่าธรรมเนียม ฿${q.fee.toStringAsFixed(2)}'}',
         style: AppTypography.caption5.copyWith(color: AppColors.success),
       ),
     );
   }
 
+  static const _weekdaysTh = [
+    'อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์',
+  ];
+  String _dayName(int d) => (d >= 0 && d < 7) ? _weekdaysTh[d] : 'จันทร์';
+
+  Future<void> _setAutoPayout(bool enabled) async {
+    try {
+      await ref.read(autoPayoutProvider.notifier).update(enabled: enabled);
+    } on AppFailure catch (f) {
+      if (mounted) _snack(f.message, AppColors.semanticErrorFgHigh);
+    }
+  }
+
   Widget _autoPayoutCard() {
-    final settings = ref.watch(payoutSettingsProvider);
+    final async = ref.watch(autoPayoutProvider);
+    final settings = async.valueOrNull ?? const AutoPayoutSettings();
+    final busy = async.isLoading;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
       decoration: BoxDecoration(
@@ -432,33 +452,120 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
           const Icon(Icons.autorenew, color: AppColors.primary, size: 22),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('โอนเงินอัตโนมัติทุกสัปดาห์',
-                    style: AppTypography.label3.copyWith(
-                        color: AppColors.semanticGrayNeutralFgHigh,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 2),
-                Text(
-                  settings.autoPayout
-                      ? 'โอนยอดคงเหลืออัตโนมัติทุกวันจันทร์ · จะเริ่มมีผลเมื่อระบบเปิดให้บริการ'
-                      : 'ให้ระบบโอนยอดคงเหลือเข้าบัญชีให้อัตโนมัติ',
-                  style: AppTypography.caption5.copyWith(
-                      color: AppColors.semanticGrayNeutralFgMidOnWhite),
+            child: InkWell(
+              onTap: settings.enabled ? () => _editSchedule(settings) : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('โอนเงินอัตโนมัติทุกสัปดาห์',
+                        style: AppTypography.label3.copyWith(
+                            color: AppColors.semanticGrayNeutralFgHigh,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Text(
+                      settings.enabled
+                          ? 'โอนทุกวัน${_dayName(settings.dayOfWeek)} · ขั้นต่ำ ฿${settings.minAmount.toStringAsFixed(0)} · แตะเพื่อตั้งค่า'
+                          : 'ให้ระบบโอนยอดคงเหลือเข้าบัญชีให้อัตโนมัติ',
+                      style: AppTypography.caption5.copyWith(
+                          color: AppColors.semanticGrayNeutralFgMidOnWhite),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           Switch(
-            value: settings.autoPayout,
+            value: settings.enabled,
             activeColor: AppColors.primary,
-            onChanged: (v) =>
-                ref.read(payoutSettingsProvider.notifier).setAutoPayout(v),
+            onChanged: busy ? null : _setAutoPayout,
           ),
         ],
       ),
     );
+  }
+
+  /// Bottom sheet to pick the weekly payout day + minimum amount (SCRUM-77).
+  Future<void> _editSchedule(AutoPayoutSettings current) async {
+    int day = current.dayOfWeek;
+    final minController =
+        TextEditingController(text: current.minAmount.toStringAsFixed(0));
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20,
+            20 + MediaQuery.of(sheetContext).viewInsets.bottom),
+        child: StatefulBuilder(
+          builder: (ctx, setSheet) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ตั้งค่าโอนอัตโนมัติ',
+                  style: AppTypography.heading6
+                      .copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<int>(
+                initialValue: day,
+                decoration: const InputDecoration(
+                    labelText: 'โอนทุกวัน', border: OutlineInputBorder()),
+                items: [
+                  for (var i = 0; i < 7; i++)
+                    DropdownMenuItem(value: i, child: Text(_weekdaysTh[i])),
+                ],
+                onChanged: (v) => setSheet(() => day = v ?? day),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: const InputDecoration(
+                    labelText: 'ยอดขั้นต่ำ (บาท)',
+                    helperText: 'อย่างน้อย ฿100',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(sheetContext, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('บันทึก',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final minText = minController.text.trim();
+    minController.dispose();
+    if (result != true) return;
+    final minAmount = double.tryParse(minText) ?? current.minAmount;
+    if (minAmount < 100) {
+      _snack('ยอดขั้นต่ำต้องไม่ต่ำกว่า ฿100', AppColors.semanticErrorFgHigh);
+      return;
+    }
+    try {
+      await ref
+          .read(autoPayoutProvider.notifier)
+          .update(dayOfWeek: day, minAmount: minAmount);
+      if (mounted) _snack('บันทึกการตั้งค่าแล้ว', AppColors.success);
+    } on AppFailure catch (f) {
+      if (mounted) _snack(f.message, AppColors.semanticErrorFgHigh);
+    }
   }
 
   Widget _presets(double available) {
@@ -592,6 +699,10 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
                     style: AppTypography.label2.copyWith(
                         color: AppColors.semanticGrayNeutralFgHigh,
                         fontWeight: FontWeight.bold)),
+                if (w.fee > 0)
+                  Text('รับจริง ฿${w.netAmount.toStringAsFixed(2)}',
+                      style: AppTypography.caption5
+                          .copyWith(color: AppColors.success)),
                 if (w.createdAt != null)
                   Text(w.createdAt!.split('T').first,
                       style: AppTypography.caption5.copyWith(
@@ -637,7 +748,7 @@ class _WithdrawScreenState extends ConsumerState<WithdrawScreen> {
         child: SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: (!valid || _submitting) ? null : () => _submit(available),
+            onPressed: (!valid || _submitting) ? null : () => _submit(s),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(vertical: 16),

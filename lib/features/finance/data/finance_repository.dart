@@ -77,6 +77,40 @@ class FinanceRepository {
     }
   }
 
+  // ─── Auto-payout (SCRUM-77) ──────────────────────────────────────────────
+
+  /// `GET /restaurant/finance/auto-payout`. Returns defaults (not 404) when
+  /// never set.
+  Future<AutoPayoutSettings> fetchAutoPayout() async {
+    final response =
+        await _api.dio.get('/api/food/restaurant/finance/auto-payout');
+    return AutoPayoutSettings.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// `PUT /restaurant/finance/auto-payout` — patch: send only what changed.
+  /// `min_amount` < 100 or `day_of_week` outside 0–6 is rejected with 400.
+  Future<void> updateAutoPayout({
+    bool? enabled,
+    int? dayOfWeek,
+    double? minAmount,
+  }) async {
+    try {
+      await _api.dio.put('/api/food/restaurant/finance/auto-payout', data: {
+        'enabled': ?enabled,
+        'day_of_week': ?dayOfWeek,
+        'min_amount': ?minAmount,
+      });
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final serverMsg =
+          data is Map ? (data['message'] ?? data['error'])?.toString() : null;
+      if (e.response?.statusCode == 400) {
+        throw AppFailure(serverMsg ?? 'ตั้งค่าไม่ถูกต้อง กรุณาตรวจสอบ', e);
+      }
+      throw AppFailure('บันทึกการตั้งค่าไม่สำเร็จ', e);
+    }
+  }
+
   /// `POST /restaurant/withdraw` — minimum 100 THB. The backend rejects when
   /// the available balance is too low or a withdrawal is already pending;
   /// surface that message rather than a raw Dio error.

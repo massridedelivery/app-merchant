@@ -438,14 +438,28 @@ class MockInterceptor extends Interceptor {
     }
 
     // ─── FINANCE ────────────────────────────────────────────
+    // Auto-payout (SCRUM-77) — must precede the generic finance branches.
+    if (path.contains('/restaurant/finance/auto-payout')) {
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: {'enabled': false, 'day_of_week': 1, 'min_amount': 100},
+        statusCode: 200,
+      ));
+    }
     if (path.contains('/restaurant/finance/summary')) {
       return _serve(options, handler, Response(
         requestOptions: options,
         data: {
-          'total_revenue': 0.0,
-          'total_orders': 0,
-          'avg_order_value': 0.0,
-          'pending_payout': 0.0,
+          'balance': 5250.0,
+          'available_balance': 5250.0,
+          'pending_withdrawal': 0.0,
+          'lifetime_earnings': 42000.0,
+          'total_withdrawn': 36750.0,
+          'can_withdraw': true,
+          // Fee model (SCRUM-78) — currently free.
+          'withdrawal_fee_flat': 0,
+          'withdrawal_fee_rate': 0,
+          'withholding_tax_rate': 0,
         },
         statusCode: 200,
       ));
@@ -463,7 +477,32 @@ class MockInterceptor extends Interceptor {
 
     // ─── WITHDRAW ────────────────────────────────────────────
     if (path.contains('/restaurant/withdraw') && method == 'POST') {
-      return _serve(options, handler, Response(requestOptions: options, data: {'message': 'Withdrawal requested successfully'}, statusCode: 200));
+      final amount = (options.data is Map)
+          ? ((options.data as Map)['amount'] as num?)?.toDouble() ?? 0
+          : 0.0;
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: {
+          'id': 'wd_${DateTime.now().millisecondsSinceEpoch}',
+          'amount': amount,
+          'fee': 0,
+          'net_amount': amount,
+          'status': 'pending',
+        },
+        statusCode: 200,
+      ));
+    }
+
+    // ─── WITHDRAWAL HISTORY ──────────────────────────────────
+    if (path.endsWith('/restaurant/withdrawals')) {
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: [
+          {'id': 'wd_1', 'amount': 1250, 'fee': 0, 'net_amount': 1250, 'status': 'completed', 'created_at': '2026-08-18T10:00:00Z'},
+          {'id': 'wd_2', 'amount': 800, 'fee': 0, 'net_amount': 800, 'status': 'pending', 'created_at': '2026-08-20T09:00:00Z'},
+        ],
+        statusCode: 200,
+      ));
     }
 
     // ─── BANK ACCOUNT (SCRUM-60) ─────────────────────────────
