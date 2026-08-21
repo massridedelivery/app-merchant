@@ -18,7 +18,12 @@ class ApiLogInterceptor extends Interceptor {
     this.enabled = kDebugMode,
     this.maxBodyChars = 1000,
     this.tag = '[API]',
+    this.logBodies = true,
   });
+
+  /// Off for binary transfers — dumping a few MB of image bytes as a JSON int
+  /// array buries every other line in the console.
+  final bool logBodies;
 
   /// Off in release by default — these lines carry request and response bodies.
   final bool enabled;
@@ -41,7 +46,7 @@ class ApiLogInterceptor extends Interceptor {
     if (enabled) {
       options.extra[_startKey] = DateTime.now();
       _write('→ ${options.method} ${options.uri}');
-      final body = _format(options.data);
+      final body = logBodies ? _format(options.data) : null;
       if (body != null) _write('  body $body');
     }
     handler.next(options);
@@ -55,7 +60,7 @@ class ApiLogInterceptor extends Interceptor {
         '← ${response.statusCode} ${options.method} ${options.uri}'
         ' ${_source(options)}${_elapsed(options)}',
       );
-      final body = _format(response.data);
+      final body = logBodies ? _format(response.data) : null;
       if (body != null) _write('  $body');
     }
     handler.next(response);
