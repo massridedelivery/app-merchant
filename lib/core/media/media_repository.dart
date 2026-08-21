@@ -98,6 +98,12 @@ class MediaRepository {
         'ไฟล์ใหญ่เกิน ${(ticket.maxBytes / 1024 / 1024).toStringAsFixed(0)} MB',
       );
     }
+    // This step deliberately bypasses ApiClient, which also means it bypasses
+    // MockInterceptor: the signed URL points at storage, not at our API, so no
+    // mock route can match it and the request would escape to a host that does
+    // not exist. Stop here in mock mode — the size check above has already run,
+    // which is the only part worth exercising offline.
+    if (ApiClient.useMock) return;
     await Dio().put(
       ticket.uploadUrl,
       data: Stream.fromIterable([bytes]),

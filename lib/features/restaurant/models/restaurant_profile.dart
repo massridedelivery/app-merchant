@@ -1,5 +1,17 @@
 enum RestaurantStatus { open, busy, paused }
 
+/// Profile-level KYC outcome (SCRUM-53 §3).
+///
+/// Casing trap: these are **uppercase**, while an individual document's own
+/// `status` is lowercase. Two enums, two casings — see [DocumentStatus].
+class VerificationStatus {
+  const VerificationStatus._();
+
+  static const String pending = 'PENDING';
+  static const String verified = 'VERIFIED';
+  static const String rejected = 'REJECTED';
+}
+
 class RestaurantProfile {
   final String name;
   final String branch;
@@ -150,7 +162,7 @@ class RestaurantProfile {
 
   bool get hasLocation => lat != null && lng != null && !(lat == 0 && lng == 0);
 
-  bool get isVerified => verificationStatus == 'VERIFIED';
+  bool get isVerified => verificationStatus == VerificationStatus.verified;
 
   RestaurantProfile copyWith({
     String? name,
