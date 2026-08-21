@@ -94,9 +94,7 @@ class MediaRepository {
     required String contentType,
   }) async {
     if (ticket.maxBytes > 0 && bytes.length > ticket.maxBytes) {
-      throw AppFailure(
-        'ไฟล์ใหญ่เกิน ${(ticket.maxBytes / 1024 / 1024).toStringAsFixed(0)} MB',
-      );
+      throw AppFailure('ไฟล์ใหญ่เกิน ${_mb(ticket.maxBytes)} MB');
     }
     // This step deliberately bypasses ApiClient, which also means it bypasses
     // MockInterceptor: the signed URL points at storage, not at our API, so no
@@ -120,12 +118,26 @@ class MediaRepository {
   Future<void> confirm(String fileKey) =>
       _api.dio.post('/api/media/confirm', data: {'file_key': fileKey});
 
-  /// Runs all three steps and returns the `file_key` to store.
+  /// Runs all three steps and returns the `file_key` to store (SCRUM-54).
+  ///
+  /// The returned value is the **bare key**, and it is what every image field
+  /// must be given — `logo_url`, `cover_image_url`, a menu item's `image_url`,
+  /// a document's `file_key`. The backend now rejects anything else with a
+  /// `400`, and a stored URL also makes the nightly orphan sweep delete the
+  /// live object it points at, because that job matches on exact key equality.
   Future<String> upload({
     required MediaCategory category,
     required String contentType,
     required Uint8List bytes,
   }) async {
+    // Fail before the round trip: the server would reject an oversized file at
+    // step 3 anyway, and asking for a URL we cannot use wastes the merchant's
+    // data as well as their time.
+    if (bytes.lengthInBytes > category.maxBytes) {
+      throw AppFailure(
+        'ไฟล์ใหญ่เกิน ${_mb(category.maxBytes)} MB',
+      );
+    }
     try {
       final ticket =
           await createUploadUrl(category: category, contentType: contentType);
@@ -135,10 +147,33 @@ class MediaRepository {
       return ticket.fileKey;
     } on AppFailure {
       rethrow;
+    } on DioException catch (e) {
+      throw AppFailure(_uploadError(e), e);
     } catch (e) {
       throw AppFailure('อัปโหลดไฟล์ไม่สำเร็จ', e);
     }
   }
+
+  /// The two failures worth naming: a signed URL that sat unused for more than
+  /// its 15 minutes, and a key the server would not accept at confirm time.
+  /// Everything else stays generic.
+  String _uploadError(DioException e) {
+    final status = e.response?.statusCode;
+    if (status == 403 || status == 401) {
+      return 'ลิงก์อัปโหลดหมดอายุ กรุณาเลือกไฟล์ใหม่อีกครั้ง';
+    }
+    if (status == 400 || status == 422) {
+      final data = e.response?.data;
+      final message =
+          data is Map ? (data['error'] ?? data['message'])?.toString() : null;
+      return message?.isNotEmpty == true
+          ? message!
+          : 'เซิร์ฟเวอร์ไม่รับไฟล์นี้ กรุณาลองไฟล์อื่น';
+    }
+    return 'อัปโหลดไฟล์ไม่สำเร็จ';
+  }
+
+  static String _mb(int bytes) => (bytes / 1024 / 1024).toStringAsFixed(0);
 
   /// Private-bucket files (KYC) are not directly linkable — putting the key in
   /// an `<img src>` 404s. This exchanges it for a signed, time-limited URL.
