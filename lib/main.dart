@@ -22,7 +22,6 @@ import 'package:merchant_app/features/auth/presentation/screens/splash_screen.da
 import 'package:merchant_app/features/auth/presentation/screens/welcome_screen.dart';
 import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/home/presentation/screens/main_screen.dart';
-import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 
 /// True once Firebase initialised. Guards FCM token registration so a build
 /// without Firebase config simply runs without push (never crashes).
@@ -54,13 +53,37 @@ Future<void> main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
+/// Turns the Riverpod state the redirect depends on into the single
+/// `Listenable` go_router understands, so a state change re-runs `redirect`
+/// on the router that already exists.
+class _RouterRefresh extends ChangeNotifier {
+  _RouterRefresh(Ref ref) {
+    ref.listen(authProvider, (_, __) => notifyListeners());
+    ref.listen(splashReadyProvider, (_, __) => notifyListeners());
+  }
+}
+
+/// Built once and kept for the life of the app.
+///
+/// This provider must not `watch` anything: watching would hand
+/// `MaterialApp.router` a different `routerConfig` every time auth or the
+/// splash gate changed, which tears down the `Router` — and the inherited
+/// scope every routed page depends on — while those pages are still mounted.
+/// The framework catches that as `'_dependents.isEmpty': is not true` and
+/// paints the red screen. `refreshListenable` + `ref.read` inside `redirect`
+/// gets the same behaviour from one long-lived instance.
 final goRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final splashReady = ref.watch(splashReadyProvider);
+  final refresh = _RouterRefresh(ref);
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      // Read, never watch — see the note on the provider.
+      final authState = ref.read(authProvider);
+      final splashReady = ref.read(splashReadyProvider);
+
       // Hold on the splash until auth has initialized AND the splash has been
       // shown for its minimum duration (splashReadyProvider), so it never
       // flashes past when init is fast.
@@ -164,7 +187,10 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(goRouterProvider);
-    final authState = ref.watch(authProvider);
+    // Only the flag the FCM block below needs. Watching the whole AuthState
+    // would rebuild this widget on every field change for no benefit.
+    final isAuthenticated =
+        ref.watch(authProvider.select((s) => s.isAuthenticated));
 
     // Let notification taps navigate.
     appRouter = router;
@@ -179,7 +205,7 @@ class MyApp extends ConsumerWidget {
         final registrar = ref.read(pushTokenRegistrarProvider);
         next ? registrar.onAuthenticated() : registrar.onLoggedOut();
       });
-      if (!_initialPushChecked && authState.isAuthenticated) {
+      if (!_initialPushChecked && isAuthenticated) {
         _initialPushChecked = true;
         final registrar = ref.read(pushTokenRegistrarProvider);
         WidgetsBinding.instance
@@ -187,14 +213,10 @@ class MyApp extends ConsumerWidget {
       }
     }
 
-    if (authState.isLoading && !authState.isAuthenticated) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const Scaffold(body: Center(child: MassLoadingM(size: 96))),
-      );
-    }
-
+    // No separate loading MaterialApp: swapping a home-based app for a
+    // router-based one replaces the Navigator with a Router mid-flight, the
+    // same teardown the provider note above describes. The router already
+    // holds on `/splash` while auth is loading, which covers the same beat.
     return MaterialApp.router(
       title: 'Mass Merchant',
       debugShowCheckedModeBanner: false,
