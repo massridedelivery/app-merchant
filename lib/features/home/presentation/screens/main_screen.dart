@@ -65,6 +65,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // hardcoded value, so gesture vs 3-button is handled automatically.
     final navBottom =
         Platform.isAndroid ? kFloatingNavGap + bottomInset : kFloatingNavGap;
+    // Space each tab reserves at the bottom so its content stops just above the
+    // bar. Each tab wraps its body in SafeArea, which adds `bottomInset` again —
+    // on iOS the bar hugs the bottom (doesn't add the inset), so without this
+    // the SafeArea inset would leave a big empty gap above the bar. Subtract it
+    // on iOS so the reserve nets out to the bar's real footprint on both.
+    final contentBottomReserve =
+        kFloatingNavReserve - (Platform.isAndroid ? 0 : bottomInset);
 
     // A tapped new-order push routes to '/' and asks for the Orders tab; honour
     // it once, after this frame, then clear so it doesn't fire again.
@@ -102,8 +109,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                             // already wraps its body in a SafeArea, so the
                             // system-nav inset is added there — adding it here
                             // too would leave a big empty gap above the bar.
-                            padding: const EdgeInsets.only(
-                                bottom: kFloatingNavReserve),
+                            padding: EdgeInsets.only(
+                                bottom: contentBottomReserve),
                             child: page,
                           ),
                         )
