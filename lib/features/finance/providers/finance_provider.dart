@@ -115,3 +115,40 @@ final withdrawalsProvider =
 final bankAccountProvider = FutureProvider.autoDispose<BankAccount>((ref) {
   return ref.watch(financeRepositoryProvider).fetchBankAccount();
 });
+
+/// Weekly auto-payout settings (`/restaurant/finance/auto-payout`, SCRUM-77).
+class AutoPayoutNotifier extends StateNotifier<AsyncValue<AutoPayoutSettings>> {
+  AutoPayoutNotifier(this._repository) : super(const AsyncValue.loading()) {
+    fetch();
+  }
+
+  final FinanceRepository _repository;
+
+  Future<void> fetch() async {
+    try {
+      state = AsyncValue.data(await _repository.fetchAutoPayout());
+    } catch (e, st) {
+      if (mounted) state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Patch update with optimistic UI; reverts on failure and rethrows.
+  Future<void> update({bool? enabled, int? dayOfWeek, double? minAmount}) async {
+    final prev = state.valueOrNull;
+    if (prev != null) {
+      state = AsyncValue.data(prev.copyWith(
+          enabled: enabled, dayOfWeek: dayOfWeek, minAmount: minAmount));
+    }
+    try {
+      await _repository.updateAutoPayout(
+          enabled: enabled, dayOfWeek: dayOfWeek, minAmount: minAmount);
+    } catch (e) {
+      if (prev != null && mounted) state = AsyncValue.data(prev);
+      rethrow;
+    }
+  }
+}
+
+final autoPayoutProvider = StateNotifierProvider<AutoPayoutNotifier,
+        AsyncValue<AutoPayoutSettings>>(
+    (ref) => AutoPayoutNotifier(ref.watch(financeRepositoryProvider)));

@@ -17,6 +17,12 @@ class FinanceSummary {
   final double totalWithdrawn;
   final bool canWithdraw;
 
+  /// Withdrawal fee model (SCRUM-78). Read every time — finance can change these
+  /// without a deploy. The current policy is free (all zero), so never hardcode.
+  final double withdrawalFeeFlat;
+  final double withdrawalFeeRate; // fraction, 0.01 = 1%
+  final double withholdingTaxRate; // fraction
+
   FinanceSummary({
     required this.balance,
     required this.availableBalance,
@@ -24,6 +30,9 @@ class FinanceSummary {
     required this.lifetimeEarnings,
     required this.totalWithdrawn,
     required this.canWithdraw,
+    this.withdrawalFeeFlat = 0,
+    this.withdrawalFeeRate = 0,
+    this.withholdingTaxRate = 0,
   });
 
   factory FinanceSummary.fromJson(Map<String, dynamic> json) => FinanceSummary(
@@ -33,6 +42,9 @@ class FinanceSummary {
         lifetimeEarnings: _toDouble(json['lifetime_earnings']),
         totalWithdrawn: _toDouble(json['total_withdrawn']),
         canWithdraw: json['can_withdraw'] == true,
+        withdrawalFeeFlat: _toDouble(json['withdrawal_fee_flat']),
+        withdrawalFeeRate: _toDouble(json['withdrawal_fee_rate']),
+        withholdingTaxRate: _toDouble(json['withholding_tax_rate']),
       );
 }
 
@@ -153,10 +165,9 @@ class TransactionsPage {
 }
 
 /// The money side of a withdrawal: what the merchant asked for, the fee, and
-/// what actually lands in the bank. Standard payout is free (like Grab's weekly
-/// transfer), so [fee] defaults to 0. When the backend starts returning a fee
-/// (e.g. an instant-payout charge), compute it in [WithdrawalQuote.of] instead
-/// of hard-coding zero — the UI already renders whatever this reports.
+/// what actually lands in the bank. The fee comes from the finance summary's
+/// rate model (SCRUM-78) so it stays in sync with backend policy — the current
+/// policy is free (all rates 0), but never hardcode that.
 class WithdrawalQuote {
   final double amount;
   final double fee;
@@ -167,31 +178,75 @@ class WithdrawalQuote {
 
   bool get isFree => fee <= 0;
 
-  /// Standard (free) payout quote for [amount].
-  factory WithdrawalQuote.of(double amount) =>
-      WithdrawalQuote(amount: amount, fee: 0);
+  /// Quote for [amount] using the summary's fee rates:
+  /// `fee = flat + amount × (feeRate + whtRate)`.
+  factory WithdrawalQuote.from(double amount, FinanceSummary s) {
+    final fee = s.withdrawalFeeFlat +
+        amount * (s.withdrawalFeeRate + s.withholdingTaxRate);
+    return WithdrawalQuote(amount: amount, fee: fee < 0 ? 0 : fee);
+  }
 }
 
-/// One entry in `GET /restaurant/withdrawals`. Parsed leniently (empty at
-/// integration time).
+/// One entry in `GET /restaurant/withdrawals`. Carries the fee/net breakdown
+/// (SCRUM-78). Parsed leniently.
 class WithdrawalRequest {
   final String id;
   final double amount;
+  final double fee;
+  final double netAmount;
   final String status;
   final String? createdAt;
 
   WithdrawalRequest({
     required this.id,
     required this.amount,
+    required this.fee,
+    required this.netAmount,
     required this.status,
     required this.createdAt,
   });
 
-  factory WithdrawalRequest.fromJson(Map<String, dynamic> j) =>
-      WithdrawalRequest(
-        id: j['id']?.toString() ?? '',
-        amount: _toDouble(j['amount']),
-        status: (j['status'] ?? '').toString(),
-        createdAt: (j['created_at'] ?? j['createdAt'])?.toString(),
+  factory WithdrawalRequest.fromJson(Map<String, dynamic> j) {
+    final amount = _toDouble(j['amount']);
+    final fee = _toDouble(j['fee']);
+    // net_amount may be absent on older rows — fall back to amount - fee.
+    final net = j['net_amount'] != null ? _toDouble(j['net_amount']) : amount - fee;
+    return WithdrawalRequest(
+      id: j['id']?.toString() ?? '',
+      amount: amount,
+      fee: fee,
+      netAmount: net,
+      status: (j['status'] ?? '').toString(),
+      createdAt: (j['created_at'] ?? j['createdAt'])?.toString(),
+    );
+  }
+}
+
+/// `GET`/`PUT /restaurant/finance/auto-payout` (SCRUM-77). Weekly automatic
+/// withdrawal. [dayOfWeek] is 0=Sunday … 6=Saturday (same as the store-hours
+/// weekday). A shop that never set it gets these defaults (not a 404).
+class AutoPayoutSettings {
+  final bool enabled;
+  final int dayOfWeek;
+  final double minAmount;
+
+  const AutoPayoutSettings({
+    this.enabled = false,
+    this.dayOfWeek = 1,
+    this.minAmount = 100,
+  });
+
+  factory AutoPayoutSettings.fromJson(Map<String, dynamic> json) =>
+      AutoPayoutSettings(
+        enabled: json['enabled'] == true,
+        dayOfWeek: _toInt(json['day_of_week']),
+        minAmount: json['min_amount'] != null ? _toDouble(json['min_amount']) : 100,
+      );
+
+  AutoPayoutSettings copyWith({bool? enabled, int? dayOfWeek, double? minAmount}) =>
+      AutoPayoutSettings(
+        enabled: enabled ?? this.enabled,
+        dayOfWeek: dayOfWeek ?? this.dayOfWeek,
+        minAmount: minAmount ?? this.minAmount,
       );
 }
