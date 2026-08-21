@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -208,54 +209,37 @@ class PushNotificationService {
     _navigateTo(_routeFor(message));
   }
 
-  /// Fires the loud new-order alert locally so the merchant can test the sound
-  /// (and vibration / full-screen) without waiting for a real backend push.
+  final AudioPlayer _testPlayer = AudioPlayer();
+
+  /// Lets the merchant *preview* the new-order alert sound.
   ///
-  /// Deliberately avoids [init]/[requestNotificationPermission] because those
-  /// touch `FirebaseMessaging.instance`, which throws in a build without
-  /// Firebase configured (e.g. the mock dev build). This is a *local*
-  /// notification, so it only needs the local plugin + the OS permission.
+  /// Plays the bundled audio directly rather than firing a notification. On
+  /// iOS a notification's sound is silenced by the ring/silent switch unless
+  /// the app has the Critical Alerts entitlement (Apple approval), so a
+  /// notification alone is unreliable — direct playback through the `playback`
+  /// session sounds even on silent. On Android we route to the alarm stream so
+  /// it's audible over silent/DND too. This is the dependable "this is the
+  /// sound" test on both platforms.
   Future<void> playTestOrderAlert() async {
-    await _initLocalNotifications();
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      final status = await ph.Permission.notification.status;
-      if (!status.isGranted) await ph.Permission.notification.request();
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      // iOS needs an explicit sound permission or the notification is silent.
-      // The local-notifications init requests none (requestSoundPermission:
-      // false), and this test path skips FirebaseMessaging, so request here.
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(alert: true, badge: true, sound: true);
+    try {
+      await _testPlayer.setAudioContext(
+        AudioContext(
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: const {AVAudioSessionOptions.mixWithOthers},
+          ),
+          android: const AudioContextAndroid(
+            contentType: AndroidContentType.sonification,
+            usageType: AndroidUsageType.alarm,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+        ),
+      );
+      await _testPlayer.stop();
+      await _testPlayer.play(AssetSource('audio/order_alert.wav'));
+    } catch (_) {
+      // Best-effort preview — never throw from a test button.
     }
-    await _localNotifications.show(
-      424242, // fixed id: a repeat test replaces the previous test alert
-      'ออเดอร์ใหม่ (ทดสอบ)',
-      'ทดสอบเสียงแจ้งเตือนออเดอร์เข้า',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _orderChannel.id,
-          _orderChannel.name,
-          channelDescription: _orderChannel.description,
-          icon: '@mipmap/ic_launcher',
-          importance: Importance.max,
-          priority: Priority.max,
-          category: AndroidNotificationCategory.call,
-          fullScreenIntent: true,
-          sound: const RawResourceAndroidNotificationSound('order_alert'),
-          playSound: true,
-          audioAttributesUsage: AudioAttributesUsage.alarm,
-        ),
-        iOS: const DarwinNotificationDetails(
-          sound: 'order_alert.caf',
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: '/',
-    );
   }
 
   /// Clears delivered notifications — also stops the order-alert sound if it is
