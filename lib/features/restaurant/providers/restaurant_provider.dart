@@ -36,7 +36,19 @@ class RestaurantProfileNotifier
     double? minOrderAmount,
     String? logoFileKey,
     String? coverFileKey,
+    String? phone,
+    String? email,
+    String? managerName,
+    String? managerPhone,
+    String? managerEmail,
+    String? taxId,
   }) async {
+    final hasContact = phone != null ||
+        email != null ||
+        managerName != null ||
+        managerPhone != null ||
+        managerEmail != null ||
+        taxId != null;
     try {
       await _repository.updateProfile(
         name: name,
@@ -48,14 +60,22 @@ class RestaurantProfileNotifier
         minOrderAmount: minOrderAmount,
         logoFileKey: logoFileKey,
         coverFileKey: coverFileKey,
+        phone: phone,
+        email: email,
+        managerName: managerName,
+        managerPhone: managerPhone,
+        managerEmail: managerEmail,
+        taxId: taxId,
       );
+    } on AppFailure {
+      rethrow; // keep the specific 403/400 message from the repository
     } catch (e) {
       throw AppFailure('ไม่สามารถบันทึกข้อมูลร้านได้', e);
     }
     if (!mounted || !state.hasValue) return;
-    // Images are sent as file_keys but read back as URLs; there's no local URL
-    // to fold in, so re-fetch to get the freshly-hosted logo/cover.
-    if (logoFileKey != null || coverFileKey != null) {
+    // Images are read back as URLs (not the file_key we sent) and contact fields
+    // aren't carried by copyWith, so re-fetch to get the canonical values.
+    if (logoFileKey != null || coverFileKey != null || hasContact) {
       await fetchProfile();
       return;
     }

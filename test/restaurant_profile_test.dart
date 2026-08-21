@@ -62,6 +62,12 @@ class _FakeRestaurantRepository extends RestaurantRepository {
     String? timezone,
     String? logoFileKey,
     String? coverFileKey,
+    String? phone,
+    String? email,
+    String? managerName,
+    String? managerPhone,
+    String? managerEmail,
+    String? taxId,
   }) async {
     lastUpdate = {
       'name': name,
@@ -71,6 +77,12 @@ class _FakeRestaurantRepository extends RestaurantRepository {
       'minOrderAmount': minOrderAmount,
       'logoFileKey': logoFileKey,
       'coverFileKey': coverFileKey,
+      'phone': phone,
+      'email': email,
+      'managerName': managerName,
+      'managerPhone': managerPhone,
+      'managerEmail': managerEmail,
+      'taxId': taxId,
     };
   }
 }
@@ -96,6 +108,23 @@ void main() {
             .minOrderAmount,
         150.0,
       );
+    });
+
+    test('parses the SCRUM-80 contact fields incl. manager_name', () {
+      final p = RestaurantProfile.fromJson(const {
+        'phone': '0812345678',
+        'email': 'shop@example.com',
+        'manager_name': 'สมชาย ใจดี',
+        'manager_phone': '0898765432',
+        'manager_email': 'somchai@example.com',
+        'tax_id': '1234567890123',
+      });
+      expect(p.phone, '0812345678');
+      expect(p.email, 'shop@example.com');
+      expect(p.managerName, 'สมชาย ใจดี');
+      expect(p.managerPhone, '0898765432');
+      expect(p.managerEmail, 'somchai@example.com');
+      expect(p.taxId, '1234567890123');
     });
   });
 
@@ -127,6 +156,30 @@ void main() {
         'cuisine_type': 'Thai Fusion',
         'address': '456 New St, Bangkok',
         'min_order_amount': 150.0,
+      });
+    });
+
+    test('sends the SCRUM-80 contact fields', () async {
+      final api = _SpyApiClient();
+
+      await RestaurantRepository(api).updateProfile(
+        name: 'Shop',
+        phone: '0812345678',
+        email: 'shop@example.com',
+        managerName: 'สมชาย ใจดี',
+        managerPhone: '0898765432',
+        managerEmail: 'somchai@example.com',
+        taxId: '1234567890123',
+      );
+
+      expect(api.last.data, {
+        'restaurant_name': 'Shop',
+        'phone': '0812345678',
+        'email': 'shop@example.com',
+        'manager_name': 'สมชาย ใจดี',
+        'manager_phone': '0898765432',
+        'manager_email': 'somchai@example.com',
+        'tax_id': '1234567890123',
       });
     });
   });
