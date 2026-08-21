@@ -38,6 +38,8 @@ class _SpyApiClient extends ApiClient {
 }
 
 void main() {
+  _scrum54();
+
   group('MediaCategory', () {
     test('carries the server-side limits', () {
       expect(MediaCategory.restaurant.maxBytes, 3 * 1024 * 1024);
@@ -206,6 +208,120 @@ void main() {
           .unregisterDevice(token: 'fcm-token', deviceType: 'ios');
 
       expect(api.last.path, '/api/notifications/unregister-device');
+    });
+  });
+}
+
+/// SCRUM-54 — the backend now rejects any image field that is not a bare media
+/// `file_key` (enforcement merged as `a605ec4`), and the nightly orphan sweep
+/// deletes the live object behind a row that stores a URL instead of a key.
+/// These pin the merchant app's side of that contract.
+void _scrum54() {
+  group('SCRUM-54 file_key contract', () {
+    test('upload returns the bare key, never a URL', () async {
+      final api = _SpyApiClient()
+        ..responses['/api/media/upload-url'] = {
+          'upload_url': 'https://storage.test/restaurant/me/logo.jpg?sig=abc',
+          'file_key': 'restaurant/me/logo.jpg',
+          'max_bytes': 3145728,
+        }
+        ..responses['/api/media/confirm'] = {'confirmed': true};
+
+      final key = await MediaRepository(api).upload(
+        category: MediaCategory.restaurant,
+        contentType: 'image/jpeg',
+        bytes: Uint8List.fromList([1, 2, 3]),
+      );
+
+      expect(key, 'restaurant/me/logo.jpg');
+      expect(key, isNot(startsWith('http')));
+    });
+
+    test('confirm runs before the key is handed to a domain endpoint',
+        () async {
+      final api = _SpyApiClient()
+        ..responses['/api/media/upload-url'] = {
+          'upload_url': 'https://storage.test/x.jpg',
+          'file_key': 'restaurant_doc/me/x.jpg',
+          'max_bytes': 5242880,
+        }
+        ..responses['/api/media/confirm'] = {'confirmed': true}
+        ..responses['/restaurant/documents'] = {'message': 'ok'};
+
+      final media = MediaRepository(api);
+      final restaurant = RestaurantRepository(api);
+      final key = await media.upload(
+        category: MediaCategory.restaurantDoc,
+        contentType: 'image/jpeg',
+        bytes: Uint8List.fromList([1]),
+      );
+      await restaurant.submitDocument(docType: 'tax_id', fileKey: key);
+
+      final paths = api.requests.map((r) => r.path).toList();
+      // Skipping confirm is how a key gets attached to a row before the object
+      // is validated — the sweep then treats it as an orphan.
+      expect(
+        paths.indexWhere((p) => p.contains('/api/media/confirm')),
+        lessThan(paths.indexWhere((p) => p.contains('/restaurant/documents'))),
+      );
+    });
+
+    test('rejects an oversized file before asking for an upload URL', () async {
+      final api = _SpyApiClient();
+
+      await expectLater(
+        MediaRepository(api).upload(
+          // avatar caps at 2 MB.
+          category: MediaCategory.avatar,
+          contentType: 'image/png',
+          bytes: Uint8List(3 * 1024 * 1024),
+        ),
+        throwsA(isA<AppFailure>()),
+      );
+      expect(api.requests, isEmpty, reason: 'should not have called the API');
+    });
+
+    test('rejects a content type the category does not allow', () async {
+      final api = _SpyApiClient();
+
+      await expectLater(
+        // `restaurant` takes no webp, unlike `menu` and `avatar`.
+        MediaRepository(api).upload(
+          category: MediaCategory.restaurant,
+          contentType: 'image/webp',
+          bytes: Uint8List.fromList([1]),
+        ),
+        throwsA(isA<AppFailure>()),
+      );
+      expect(api.requests, isEmpty);
+    });
+
+    test('profile keeps logo and cover absent when no new image was picked',
+        () async {
+      final api = _SpyApiClient()..responses['/restaurant/profile'] = {};
+
+      await RestaurantRepository(api).updateProfile(name: 'ครัวสมชาย');
+
+      // The read side returns logo_url as a full URL while the write side wants
+      // a key, so a read-modify-write that echoes the profile back is exactly
+      // what SCRUM-54 warns about. Omitting the field is what keeps that safe.
+      final body = api.last.data as Map<String, dynamic>;
+      expect(body.containsKey('logo_url'), isFalse);
+      expect(body.containsKey('cover_image_url'), isFalse);
+    });
+
+    test('profile sends the file_key verbatim on both image fields', () async {
+      final api = _SpyApiClient()..responses['/restaurant/profile'] = {};
+
+      await RestaurantRepository(api).updateProfile(
+        name: 'ครัวสมชาย',
+        logoFileKey: 'restaurant/me/logo.jpg',
+        coverFileKey: 'restaurant/me/cover.jpg',
+      );
+
+      final body = api.last.data as Map<String, dynamic>;
+      expect(body['logo_url'], 'restaurant/me/logo.jpg');
+      expect(body['cover_image_url'], 'restaurant/me/cover.jpg');
     });
   });
 }
