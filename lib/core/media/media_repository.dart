@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/errors/app_failure.dart';
 import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/core/network/api_logger.dart';
 
 /// Upload buckets, with the limits the server enforces (SCRUM-53 §13).
 enum MediaCategory {
@@ -66,6 +67,12 @@ class MediaRepository {
 
   final ApiClient _api;
 
+  /// Step 2 cannot go through [ApiClient] — an Authorization header breaks the
+  /// presigned signature — but it is also the step most likely to fail, so it
+  /// gets the logger on its own. Bodies are off: these are raw image bytes.
+  late final Dio _storage = Dio()
+    ..interceptors.add(ApiLogInterceptor(logBodies: false));
+
   /// Signed PUT URLs are short-lived (15 min) and the signature covers the
   /// content type, so the upload must use exactly what was requested here.
   Future<UploadTicket> createUploadUrl({
@@ -102,7 +109,7 @@ class MediaRepository {
     // not exist. Stop here in mock mode — the size check above has already run,
     // which is the only part worth exercising offline.
     if (ApiClient.useMock) return;
-    await Dio().put(
+    await _storage.put(
       ticket.uploadUrl,
       data: Stream.fromIterable([bytes]),
       options: Options(
@@ -158,19 +165,36 @@ class MediaRepository {
   /// its 15 minutes, and a key the server would not accept at confirm time.
   /// Everything else stays generic.
   String _uploadError(DioException e) {
-    final status = e.response?.statusCode;
+    // No response at all: nothing was reached. Reads identically to a rejection
+    // in the UI unless it is named, and the fix is completely different.
+    if (e.response == null) {
+      return switch (e.type) {
+        DioExceptionType.connectionTimeout ||
+        DioExceptionType.sendTimeout ||
+        DioExceptionType.receiveTimeout =>
+          'อัปโหลดนานเกินไป กรุณาลองใหม่ (ไฟล์อาจใหญ่หรือเน็ตช้า)',
+        _ => 'เชื่อมต่อที่เก็บไฟล์ไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ต',
+      };
+    }
+    final status = e.response!.statusCode;
     if (status == 403 || status == 401) {
       return 'ลิงก์อัปโหลดหมดอายุ กรุณาเลือกไฟล์ใหม่อีกครั้ง';
     }
+    if (status == 404) {
+      return 'เซิร์ฟเวอร์ไม่มีบริการอัปโหลดไฟล์ (404) แจ้งทีมหลังบ้าน';
+    }
+    if (status == 413) {
+      return 'ไฟล์ใหญ่เกินที่เซิร์ฟเวอร์รับได้';
+    }
     if (status == 400 || status == 422) {
-      final data = e.response?.data;
+      final data = e.response!.data;
       final message =
           data is Map ? (data['error'] ?? data['message'])?.toString() : null;
       return message?.isNotEmpty == true
           ? message!
           : 'เซิร์ฟเวอร์ไม่รับไฟล์นี้ กรุณาลองไฟล์อื่น';
     }
-    return 'อัปโหลดไฟล์ไม่สำเร็จ';
+    return 'อัปโหลดไฟล์ไม่สำเร็จ (HTTP $status)';
   }
 
   static String _mb(int bytes) => (bytes / 1024 / 1024).toStringAsFixed(0);

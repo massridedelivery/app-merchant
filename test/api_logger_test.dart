@@ -10,6 +10,8 @@ import 'package:merchant_app/core/network/mock_interceptor.dart';
 /// The interceptor writes through dart:developer, which a test cannot read
 /// back, so this mirrors its decisions on the same inputs.
 void main() {
+  _bodySuppression();
+
   group('mock traffic is labelled', () {
     late Dio dio;
     late List<RequestOptions> seen;
@@ -224,6 +226,53 @@ void main() {
           ),
         ),
       );
+    });
+  });
+}
+
+/// A binary upload goes through the same interceptor, but dumping a few MB of
+/// image bytes as a JSON int array would bury every other line.
+void _bodySuppression() {
+  group('logBodies', () {
+    late List<String> lines;
+    late DebugPrintCallback original;
+
+    setUp(() {
+      lines = [];
+      original = debugPrint;
+      debugPrint = (message, {int? wrapWidth}) {
+        if (message != null) lines.add(message);
+      };
+    });
+
+    tearDown(() => debugPrint = original);
+
+    test('suppresses request and response bodies when off', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'https://storage.test'))
+        ..interceptors.add(ApiLogInterceptor(enabled: true, logBodies: false))
+        ..interceptors.add(
+          InterceptorsWrapper(
+            // `true` so the response still reaches the logger — resolving
+            // without it skips every response interceptor, which is the dio
+            // quirk the rest of this file exists to pin.
+            onRequest: (options, handler) => handler.resolve(
+              Response(
+                requestOptions: options,
+                data: 'a-very-long-response-body',
+                statusCode: 200,
+              ),
+              true,
+            ),
+          ),
+        );
+      await dio.put('/blob', data: 'PRETEND-IMAGE-BYTES');
+
+      // The request and response lines still show, so a failed upload is still
+      // traceable — only the payload is withheld.
+      expect(lines.any((l) => l.contains('PUT')), isTrue);
+      expect(lines.any((l) => l.contains('200')), isTrue);
+      expect(lines.any((l) => l.contains('PRETEND-IMAGE-BYTES')), isFalse);
+      expect(lines.any((l) => l.contains('a-very-long-response-body')), isFalse);
     });
   });
 }
