@@ -11,6 +11,7 @@ import 'package:merchant_app/features/restaurant/providers/restaurant_provider.d
 import 'package:merchant_app/features/finance/presentation/screens/bank_account_screen.dart';
 import 'package:merchant_app/features/finance/presentation/screens/withdraw_screen.dart';
 import 'package:merchant_app/features/restaurant/presentation/screens/closing_hours_screen.dart';
+import 'package:merchant_app/features/restaurant/presentation/screens/kyc_documents_screen.dart';
 import 'package:merchant_app/features/restaurant/presentation/screens/store_details_screen.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
@@ -177,6 +178,18 @@ class ProfileScreen extends ConsumerWidget {
                         context,
                         MaterialPageRoute(
                           builder: (_) => const ClosingHoursScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMenuCard(
+                      icon: AppIcons.stackPaperLine,
+                      title: 'เอกสารยืนยันตัวตน',
+                      subtitle: 'ส่งเอกสาร KYC และดูสถานะการตรวจสอบ',
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const KycDocumentsScreen(),
                         ),
                       ),
                     ),
