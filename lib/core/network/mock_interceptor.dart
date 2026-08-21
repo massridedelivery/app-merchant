@@ -1,12 +1,43 @@
 import 'package:dio/dio.dart';
 
+import 'api_logger.dart';
+
 /// Access token handed out by the mock `/auth/*` routes. Decodes to
 /// `{user_id, role: restaurant, exp: 2030}` so the whole session flow — claims,
 /// role check, restaurant id — works with no server.
 const String mockAccessToken =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiOWYxYzBmNmUtM2IzYS00YTFlLTljMmQtNmE1ZTRiM2MyZDEwIiwicm9sZSI6InJlc3RhdXJhbnQiLCJzaWQiOiJtb2NrLXNlc3Npb24iLCJleHAiOjE4OTM0NTYwMDAsImlhdCI6MTc4NTkxMzYwMH0.mock-signature';
 
+/// The only OTP the mock accepts, so the wrong-code path stays testable
+/// without a server.
+const String mockOtpCode = '123456';
+
 class MockInterceptor extends Interceptor {
+
+  /// Answers with canned data.
+  ///
+  /// `callFollowingResponseInterceptor: true` matters: the default skips every
+  /// response interceptor, which would hide mock traffic from [ApiLogInterceptor]
+  /// — the exact thing that makes mock and network indistinguishable.
+  void _serve(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+    Response response,
+  ) {
+    options.extra[ApiLogInterceptor.mockedKey] = true;
+    handler.resolve(response, true);
+  }
+
+  /// Same, for the paths where the mock refuses.
+  void _fail(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+    DioException error,
+  ) {
+    options.extra[ApiLogInterceptor.mockedKey] = true;
+    handler.reject(error, true);
+  }
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final path = options.path;
@@ -18,7 +49,7 @@ class MockInterceptor extends Interceptor {
     if (path.contains('/auth/login') ||
         path.contains('/auth/register') ||
         path.contains('/auth/refresh')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'access_token': mockAccessToken,
@@ -28,8 +59,49 @@ class MockInterceptor extends Interceptor {
         statusCode: path.contains('/auth/register') ? 201 : 200,
       ));
     }
+    // Phone OTP. `is_registered` decides whether the app routes to login or to
+    // the 7-step signup, so one canned number answers as an existing account
+    // and everything else as a new one.
+    if (path.contains('/auth/otp/send')) {
+      final phone = (options.data as Map?)?['phone']?.toString() ?? '';
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: {
+          'ref_id': 'mock-ref-${DateTime.now().millisecondsSinceEpoch}',
+          'is_registered': phone.endsWith('812345678'),
+          'message': 'OTP sent',
+        },
+        statusCode: 200,
+      ));
+    }
+    if (path.contains('/auth/otp/verify')) {
+      final otp = (options.data as Map?)?['otp']?.toString() ?? '';
+      // Accepting only one code keeps the wrong-OTP path reachable offline.
+      if (otp != mockOtpCode) {
+        return _fail(options, handler,
+          DioException(
+            requestOptions: options,
+            response: Response(
+              requestOptions: options,
+              data: {'error': 'invalid or expired OTP'},
+              statusCode: 400,
+            ),
+            type: DioExceptionType.badResponse,
+          ),
+        );
+      }
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: {
+          'access_token': mockAccessToken,
+          'refresh_token': 'mock-refresh-token',
+          'expires_in': 86400,
+        },
+        statusCode: 200,
+      ));
+    }
     if (path.contains('/auth/logout')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {'message': 'logged out successfully'},
         statusCode: 200,
@@ -39,13 +111,13 @@ class MockInterceptor extends Interceptor {
     // ─── RESTAURANT PROFILE ─────────────────────────────────
     if (path.contains('/restaurant/profile')) {
       if (method == 'PUT') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'Profile updated successfully'},
           statusCode: 200,
         ));
       }
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'user_id': 'rest-123',
@@ -86,7 +158,7 @@ class MockInterceptor extends Interceptor {
 
     // ─── TOGGLE OPEN ────────────────────────────────────────
     if (path.contains('/restaurant/open')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {'is_open': true},
         statusCode: 200,
@@ -95,7 +167,7 @@ class MockInterceptor extends Interceptor {
 
     // ─── BUSY MODE ──────────────────────────────────────────
     if (path.contains('/restaurant/busy')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {'message': 'Busy mode updated'},
         statusCode: 200,
@@ -105,13 +177,13 @@ class MockInterceptor extends Interceptor {
     // ─── STORE HOURS ────────────────────────────────────────
     if (path.contains('/restaurant/hours')) {
       if (method == 'PUT') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'Hours updated successfully'},
           statusCode: 200,
         ));
       }
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'special_closures': [
@@ -138,9 +210,11 @@ class MockInterceptor extends Interceptor {
       ));
     }
 
-    // ─── MENU: CUSTOMER (for fetching display menu) ─────────
-    if (path.contains('/customer/restaurants/') && path.endsWith('/menu')) {
-      return handler.resolve(Response(
+    // ─── MENU (GET /api/food/restaurant/{id}/menu) ──────────
+    // endsWith('/menu') keeps this off `/menu/categories` and `/menu/items`,
+    // which are handled further down.
+    if (path.contains('/restaurant/') && path.endsWith('/menu')) {
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: _mockMenuData(),
         statusCode: 200,
@@ -163,7 +237,7 @@ class MockInterceptor extends Interceptor {
     if (path.contains('/restaurant/menu/categories')) {
       if (method == 'POST') {
         final data = options.data as Map<String, dynamic>;
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {
             'id': 'cat_new_${DateTime.now().millisecondsSinceEpoch}',
@@ -176,21 +250,21 @@ class MockInterceptor extends Interceptor {
         ));
       }
       if (method == 'GET') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: _mockMenuData()['categories'],
           statusCode: 200,
         ));
       }
       if (method == 'PUT') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'updated successfully'},
           statusCode: 200,
         ));
       }
       if (method == 'DELETE') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: null,
           statusCode: 204,
@@ -202,7 +276,7 @@ class MockInterceptor extends Interceptor {
     if (path.contains('/restaurant/menu/items')) {
       if (method == 'POST') {
         final data = options.data as Map<String, dynamic>;
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {
             'id': 'item_new_${DateTime.now().millisecondsSinceEpoch}',
@@ -217,14 +291,14 @@ class MockInterceptor extends Interceptor {
         ));
       }
       if (method == 'PUT') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'item updated successfully'},
           statusCode: 200,
         ));
       }
       if (method == 'DELETE') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: null,
           statusCode: 204,
@@ -236,7 +310,7 @@ class MockInterceptor extends Interceptor {
     if (path.contains('/modifiers')) {
       if (method == 'POST') {
         final data = options.data as Map<String, dynamic>;
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {
             'id': 'mod_new_${DateTime.now().millisecondsSinceEpoch}',
@@ -249,14 +323,14 @@ class MockInterceptor extends Interceptor {
         ));
       }
       if (method == 'PUT') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'modifier updated'},
           statusCode: 200,
         ));
       }
       if (method == 'DELETE') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: null,
           statusCode: 204,
@@ -268,14 +342,14 @@ class MockInterceptor extends Interceptor {
     if (path.contains('/restaurant/items/') &&
         path.contains('/modifier-groups')) {
       if (method == 'POST') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'modifier group linked to item'},
           statusCode: 200,
         ));
       }
       if (method == 'DELETE') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: null,
           statusCode: 204,
@@ -286,7 +360,7 @@ class MockInterceptor extends Interceptor {
     // ─── MODIFIER GROUPS ─────────────────────────────────────
     if (path.contains('/modifier-groups') && !path.contains('/modifiers')) {
       if (method == 'GET') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: _mockModifierGroups(),
           statusCode: 200,
@@ -294,7 +368,7 @@ class MockInterceptor extends Interceptor {
       }
       if (method == 'POST') {
         final data = options.data as Map<String, dynamic>;
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {
             'id': 'group_new_${DateTime.now().millisecondsSinceEpoch}',
@@ -308,14 +382,14 @@ class MockInterceptor extends Interceptor {
         ));
       }
       if (method == 'PUT') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'modifier group updated'},
           statusCode: 200,
         ));
       }
       if (method == 'DELETE') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: null,
           statusCode: 204,
@@ -325,7 +399,7 @@ class MockInterceptor extends Interceptor {
 
     // ─── ORDERS: PENDING ────────────────────────────────────
     if (path.contains('/restaurant/orders/pending')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: _mockPendingOrders(),
         statusCode: 200,
@@ -334,7 +408,7 @@ class MockInterceptor extends Interceptor {
 
     // ─── ORDERS: HISTORY ────────────────────────────────────
     if (path.contains('/restaurant/orders/history')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: _mockOrderHistory(),
         statusCode: 200,
@@ -343,28 +417,28 @@ class MockInterceptor extends Interceptor {
 
     // ─── ORDER ACTIONS ──────────────────────────────────────
     if (path.contains('/restaurant/orders/') && path.contains('/ops')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {'message': 'order updated successfully'},
         statusCode: 200,
       ));
     }
     if (path.contains('/restaurant/orders/') && path.contains('/accept')) {
-      return handler.resolve(Response(requestOptions: options, data: {'message': 'RESTAURANT_ACCEPTED'}, statusCode: 200));
+      return _serve(options, handler, Response(requestOptions: options, data: {'message': 'RESTAURANT_ACCEPTED'}, statusCode: 200));
     }
     if (path.contains('/restaurant/orders/') && path.contains('/reject')) {
-      return handler.resolve(Response(requestOptions: options, data: {'message': 'RESTAURANT_REJECTED'}, statusCode: 200));
+      return _serve(options, handler, Response(requestOptions: options, data: {'message': 'RESTAURANT_REJECTED'}, statusCode: 200));
     }
     if (path.contains('/restaurant/orders/') && path.contains('/preparing')) {
-      return handler.resolve(Response(requestOptions: options, data: {'message': 'PREPARING'}, statusCode: 200));
+      return _serve(options, handler, Response(requestOptions: options, data: {'message': 'PREPARING'}, statusCode: 200));
     }
     if (path.contains('/restaurant/orders/') && path.contains('/ready')) {
-      return handler.resolve(Response(requestOptions: options, data: {'message': 'READY_FOR_PICKUP'}, statusCode: 200));
+      return _serve(options, handler, Response(requestOptions: options, data: {'message': 'READY_FOR_PICKUP'}, statusCode: 200));
     }
 
     // ─── FINANCE ────────────────────────────────────────────
     if (path.contains('/restaurant/finance/summary')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'total_revenue': 0.0,
@@ -376,10 +450,10 @@ class MockInterceptor extends Interceptor {
       ));
     }
     if (path.contains('/restaurant/finance/transactions')) {
-      return handler.resolve(Response(requestOptions: options, data: [], statusCode: 200));
+      return _serve(options, handler, Response(requestOptions: options, data: [], statusCode: 200));
     }
     if (path.contains('/restaurant/finance/earnings')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {'balance': 0.0, 'pending': 0.0, 'transactions': []},
         statusCode: 200,
@@ -388,12 +462,12 @@ class MockInterceptor extends Interceptor {
 
     // ─── WITHDRAW ────────────────────────────────────────────
     if (path.contains('/restaurant/withdraw') && method == 'POST') {
-      return handler.resolve(Response(requestOptions: options, data: {'message': 'Withdrawal requested successfully'}, statusCode: 200));
+      return _serve(options, handler, Response(requestOptions: options, data: {'message': 'Withdrawal requested successfully'}, statusCode: 200));
     }
 
     // ─── ADS ────────────────────────────────────────────────
     if (path.contains('/restaurant/ads')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'id': 'ad_current',
@@ -409,13 +483,13 @@ class MockInterceptor extends Interceptor {
     // ─── KYC DOCUMENTS ──────────────────────────────────────
     if (path.contains('/restaurant/documents')) {
       if (method == 'POST') {
-        return handler.resolve(Response(
+        return _serve(options, handler, Response(
           requestOptions: options,
           data: {'message': 'document uploaded successfully'},
           statusCode: 200,
         ));
       }
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: [
           {
@@ -440,12 +514,38 @@ class MockInterceptor extends Interceptor {
       ));
     }
 
+    // ─── PUSH DEVICE REGISTRATION ───────────────────────────
+    if (path.contains('/api/notifications/register-device') ||
+        path.contains('/api/notifications/unregister-device')) {
+      final token = (options.data as Map?)?['token'];
+      if (token == null || (token is String && token.isEmpty)) {
+        return _fail(
+          options,
+          handler,
+          DioException(
+            requestOptions: options,
+            response: Response(
+              requestOptions: options,
+              data: {'error': 'token is required'},
+              statusCode: 422,
+            ),
+            type: DioExceptionType.badResponse,
+          ),
+        );
+      }
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: {'status': 'success'},
+        statusCode: 200,
+      ));
+    }
+
     // ─── MEDIA (3-step upload) ──────────────────────────────
     if (path.contains('/api/media/upload-url')) {
       final category = options.queryParameters['category'] ?? 'restaurant';
       final key =
           '$category/mock-user/${DateTime.now().millisecondsSinceEpoch}.jpg';
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'upload_url': 'https://storage.mock.local/$key?signature=mock',
@@ -459,7 +559,7 @@ class MockInterceptor extends Interceptor {
       ));
     }
     if (path.contains('/api/media/confirm')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'file_key': (options.data as Map)['file_key'],
@@ -469,7 +569,7 @@ class MockInterceptor extends Interceptor {
       ));
     }
     if (path.contains('/api/media/view')) {
-      return handler.resolve(Response(
+      return _serve(options, handler, Response(
         requestOptions: options,
         data: {
           'view_url':

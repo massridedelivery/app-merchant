@@ -84,6 +84,17 @@ Builds pass config via `--dart-define-from-file`:
 - `env/dev.json` — used by CI / debug builds
 - `env/prod.json` — used by release builds
 
-> Note: these are currently scaffolds — the app still hardcodes the API base URL
-> in `lib/core/network/api_client.dart`. Wire it to `String.fromEnvironment(...)`
-> to make the env files take effect.
+`ApiClient.baseUrl`, `ApiClient.useMock` and `SocketService.wsUrl` read these
+through `String.fromEnvironment`, so a build with no env file falls back to the
+in-app mock against `localhost:8080`.
+
+Each file carries Firebase credentials for its own project —
+`dev-merchant-4619a` for debug builds, `prod-merchant-8d684` for release — so
+push works in both. See [`docs/CICD_SETUP.md`](docs/CICD_SETUP.md).
+
+> **`env/prod.json` currently points at the dev host on purpose.** There is no
+> production backend yet, and nothing in CI overrides the file, so release
+> builds for both stores ship against `driver-api-dev.nutchaphut.dev`. Change
+> the two URLs in that file the day a production host exists — the release
+> workflows need no edit. Note this now clashes with the production Firebase
+> project also configured in that file; see `docs/CICD_SETUP.md`.

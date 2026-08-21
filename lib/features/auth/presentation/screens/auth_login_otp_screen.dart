@@ -22,6 +22,7 @@ class _AuthLoginOtpScreenState extends ConsumerState<AuthLoginOtpScreen> {
   int _secondsRemaining = 174;
   Timer? _timer;
   bool _submitting = false;
+  bool _resending = false;
   int _attempt = 0; // bumping this clears the OtpInput after a failed try
 
   @override
@@ -77,6 +78,38 @@ class _AuthLoginOtpScreenState extends ConsumerState<AuthLoginOtpScreen> {
     }
   }
 
+  /// Actually re-requests an OTP (a fresh `ref_id`), not just a timer reset —
+  /// the old code/ref_id expires, so re-using it would always fail to verify.
+  Future<void> _resendOtp() async {
+    if (_resending) return;
+    final flow = ref.read(otpFlowProvider);
+    if (flow == null) return;
+    setState(() => _resending = true);
+    try {
+      final result =
+          await ref.read(authProvider.notifier).requestOtp(flow.phone);
+      ref.read(otpFlowProvider.notifier).state = OtpFlow(
+        phone: flow.phone,
+        refId: result.refId,
+        isRegistered: result.isRegistered,
+        isLogin: flow.isLogin,
+      );
+      if (!mounted) return;
+      setState(() {
+        _resending = false;
+        _secondsRemaining = 174;
+        _attempt++; // clear any half-typed code tied to the old OTP
+      });
+      _startTimer();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _resending = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -128,11 +161,8 @@ class _AuthLoginOtpScreenState extends ConsumerState<AuthLoginOtpScreen> {
                         ),
                       ),
                     GestureDetector(
-                      onTap: _secondsRemaining == 0
-                          ? () {
-                              setState(() => _secondsRemaining = 174);
-                              _startTimer();
-                            }
+                      onTap: (_secondsRemaining == 0 && !_resending)
+                          ? _resendOtp
                           : null,
                       child: Container(
                         padding: const EdgeInsets.symmetric(

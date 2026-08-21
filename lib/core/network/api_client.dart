@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'api_logger.dart';
 import 'mock_interceptor.dart';
 
 class ApiClient {
@@ -49,6 +50,11 @@ class ApiClient {
     );
     _dio = Dio(options);
     _refreshDio = Dio(options);
+
+    // First in the chain on purpose: it has to see a request before the mock
+    // can answer it, and before the retry wrapper replays one.
+    _dio.interceptors.add(ApiLogInterceptor());
+    _refreshDio.interceptors.add(ApiLogInterceptor());
 
     // Add Mock Interceptor if enabled
     if (useMock) {

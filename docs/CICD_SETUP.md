@@ -107,18 +107,47 @@ bundle exec fastlane ios certificates   # creates + stores App Store cert/profil
 ## Environment files
 
 `env/dev.json` and `env/prod.json` are consumed via
-`--dart-define-from-file`. **Note:** the app code does not yet read these values —
-the API base URL is currently hardcoded in
-`lib/core/network/api_client.dart` (`http://localhost:8080/api/food`) and the
-socket URL in `lib/core/services/socket_service.dart`. To make the env files
-effective, switch those to:
+`--dart-define-from-file`. The app reads them through `String.fromEnvironment`:
 
-```dart
-static const String baseUrl =
-    String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8080/api/food');
-```
+| Key | Read by |
+| --- | --- |
+| `API_BASE_URL` | `ApiClient.baseUrl` — bare host, no `/api/food` suffix |
+| `WS_URL` | `SocketService.wsUrl` |
+| `USE_MOCK` | `ApiClient.useMock` — `true` serves canned data offline |
+| `ENV` | nothing yet |
+| `APP_*_FIREBASE_*` | `DefaultFirebaseOptions` in `lib/firebase_options.dart` |
 
-Until then the env files exist only to satisfy the build flag.
+### Firebase / push
+
+Both env files now carry real credentials, against two separate projects:
+
+| File | Firebase project | Project number | Android package | iOS bundle |
+| --- | --- | --- | --- | --- |
+| `env/dev.json` | `dev-merchant-4619a` | 206020784191 | `com.mass.merchant_app.dev` | `com.mass.merchantApp.dev` |
+| `env/prod.json` | `prod-merchant-8d684` | 812699956693 | `com.mass.merchant_app` | `com.mass.merchantApp` |
+
+The registered ids match what each build actually produces: debug builds add
+`.dev` (via `applicationIdSuffix` on Android, the Debug configuration on iOS,
+and `tool/deploy_dev.sh` for TestFlight), release builds drop it.
+
+`apiKey` and `appId` are per-app; `messagingSenderId`, `projectId` and
+`storageBucket` are per-project. Values come from `google-services.json`
+(Android) and `GoogleService-Info.plist` (iOS) — neither file is committed, the
+defines replace them.
+
+If a value is ever unknown, leave it as an empty string. `main.dart` only calls
+`Firebase.initializeApp` when `appId` and `projectId` are both non-empty, so
+blanks disable push cleanly. A dummy value such as `CHANGE_ME` is worse than
+nothing — it satisfies the guard, so init runs with a bogus config and iOS
+aborts on an uncatchable Objective-C exception at launch.
+
+> **Release builds are now internally inconsistent.** `env/prod.json` pairs the
+> production Firebase project with `API_BASE_URL` still pointing at
+> `driver-api-dev.nutchaphut.dev`. A release build therefore registers its FCM
+> token under sender 812699956693 and hands it to the dev backend, which pushes
+> through whichever project *it* is configured with — a sender mismatch means
+> those pushes are rejected. Point `API_BASE_URL` at the production host before
+> relying on push in a release build.
 
 ## Notes / prerequisites
 
