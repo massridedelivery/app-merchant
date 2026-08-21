@@ -35,6 +35,7 @@ class RestaurantProfile {
   final String? address;
   final String? phone;
   final String? email;
+  final String? managerName;
   final String? managerPhone;
   final String? managerEmail;
   final String? restaurantCode;
@@ -74,6 +75,7 @@ class RestaurantProfile {
     this.address,
     this.phone,
     this.email,
+    this.managerName,
     this.managerPhone,
     this.managerEmail,
     this.restaurantCode,
@@ -125,6 +127,7 @@ class RestaurantProfile {
       address: json['address'],
       phone: json['phone'],
       email: json['email'],
+      managerName: json['manager_name'],
       managerPhone: json['manager_phone'],
       managerEmail: json['manager_email'],
       restaurantCode: json['restaurant_code'],
@@ -195,6 +198,7 @@ class RestaurantProfile {
       address: address ?? this.address,
       phone: phone,
       email: email,
+      managerName: managerName,
       managerPhone: managerPhone,
       managerEmail: managerEmail,
       restaurantCode: restaurantCode,

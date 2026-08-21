@@ -97,7 +97,7 @@ class StoreDetailsScreen extends ConsumerWidget {
                 children: [
                   _buildInfoRow('เจ้าของร้าน', profile.name),
                   const Divider(height: 24, color: Color(0xFFF0F0F0)),
-                  _buildInfoRow('ผู้จัดการ', profile.name),
+                  _buildInfoRow('ผู้จัดการ', profile.managerName ?? '-'),
                   const Divider(height: 24, color: Color(0xFFF0F0F0)),
                   _buildInfoRow('เบอร์ติดต่อร้าน', profile.phone ?? '-'),
                   const Divider(height: 24, color: Color(0xFFF0F0F0)),

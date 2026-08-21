@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 import 'package:merchant_app/core/media/media_repository.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
@@ -43,6 +44,24 @@ class _EditStoreScreenState extends ConsumerState<EditStoreScreen> {
   late final _minOrderController = TextEditingController(
     text: widget.profile.minOrderAmount?.toStringAsFixed(0) ?? '',
   );
+  // Contact fields (SCRUM-80).
+  late final _phoneController =
+      TextEditingController(text: widget.profile.phone ?? '');
+  late final _emailController =
+      TextEditingController(text: widget.profile.email ?? '');
+  late final _managerNameController =
+      TextEditingController(text: widget.profile.managerName ?? '');
+  late final _managerPhoneController =
+      TextEditingController(text: widget.profile.managerPhone ?? '');
+  late final _managerEmailController =
+      TextEditingController(text: widget.profile.managerEmail ?? '');
+  late final _taxIdController =
+      TextEditingController(text: widget.profile.taxId ?? '');
+
+  /// The tax id is locked once the shop is verified and already has one on file
+  /// (the backend 403s an edit — it's checked against KYC docs).
+  bool get _taxIdLocked =>
+      widget.profile.isVerified && (widget.profile.taxId?.isNotEmpty ?? false);
 
   _PickedImage? _newLogo;
   _PickedImage? _newCover;
@@ -55,7 +74,35 @@ class _EditStoreScreenState extends ConsumerState<EditStoreScreen> {
     _cuisineController.dispose();
     _addressController.dispose();
     _minOrderController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    _managerNameController.dispose();
+    _managerPhoneController.dispose();
+    _managerEmailController.dispose();
+    _taxIdController.dispose();
     super.dispose();
+  }
+
+  // ── Validators (optional fields: empty is allowed; formats mirror the BE) ──
+  static final _thaiPhone = RegExp(r'^(0|\+66)[689]\d{8}$');
+  static final _email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+  String? _validatePhone(String? v) {
+    final s = v?.trim() ?? '';
+    if (s.isEmpty) return null;
+    return _thaiPhone.hasMatch(s) ? null : 'เบอร์โทรไม่ถูกต้อง (10 หลัก ขึ้นต้น 06/08/09)';
+  }
+
+  String? _validateEmail(String? v) {
+    final s = v?.trim() ?? '';
+    if (s.isEmpty) return null;
+    return _email.hasMatch(s) ? null : 'อีเมลไม่ถูกต้อง';
+  }
+
+  String? _validateTaxId(String? v) {
+    final s = v?.trim() ?? '';
+    if (s.isEmpty) return null;
+    return RegExp(r'^\d{13}$').hasMatch(s) ? null : 'เลขผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก';
   }
 
   String? _trimmedOrNull(TextEditingController c) {
@@ -151,10 +198,21 @@ class _EditStoreScreenState extends ConsumerState<EditStoreScreen> {
             minOrderAmount: double.tryParse(_minOrderController.text.trim()),
             logoFileKey: logoKey,
             coverFileKey: coverKey,
+            phone: _trimmedOrNull(_phoneController),
+            email: _trimmedOrNull(_emailController),
+            managerName: _trimmedOrNull(_managerNameController),
+            managerPhone: _trimmedOrNull(_managerPhoneController),
+            managerEmail: _trimmedOrNull(_managerEmailController),
+            // Omit the tax id entirely when it's locked (verified) so we never
+            // trip the backend's 403.
+            taxId: _taxIdLocked ? null : _trimmedOrNull(_taxIdController),
           );
       if (!mounted) return;
       _snack('บันทึกข้อมูลร้านแล้ว', AppColors.success);
       Navigator.pop(context, true);
+    } on AppFailure catch (f) {
+      if (!mounted) return;
+      _snack(f.message, AppColors.error);
     } catch (e) {
       if (!mounted) return;
       _snack('เกิดข้อผิดพลาด: $e', AppColors.error);
@@ -223,6 +281,48 @@ class _EditStoreScreenState extends ConsumerState<EditStoreScreen> {
                 },
               ),
             ]),
+            const SizedBox(height: 8),
+            _section(
+              title: 'ข้อมูลติดต่อ',
+              [
+                _field(
+                  controller: _phoneController,
+                  label: 'เบอร์ติดต่อร้าน',
+                  keyboardType: TextInputType.phone,
+                  validator: _validatePhone,
+                ),
+                _field(
+                  controller: _emailController,
+                  label: 'อีเมลร้าน',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: _validateEmail,
+                ),
+                _field(
+                    controller: _managerNameController, label: 'ชื่อผู้จัดการ'),
+                _field(
+                  controller: _managerPhoneController,
+                  label: 'เบอร์ผู้จัดการ',
+                  keyboardType: TextInputType.phone,
+                  validator: _validatePhone,
+                ),
+                _field(
+                  controller: _managerEmailController,
+                  label: 'อีเมลผู้จัดการ',
+                  keyboardType: TextInputType.emailAddress,
+                  validator: _validateEmail,
+                ),
+                _field(
+                  controller: _taxIdController,
+                  label: 'เลขประจำตัวผู้เสียภาษี',
+                  keyboardType: TextInputType.number,
+                  enabled: !_taxIdLocked,
+                  validator: _taxIdLocked ? null : _validateTaxId,
+                  helperText: _taxIdLocked
+                      ? 'ร้านยืนยันแล้ว — ติดต่อแอดมินเพื่อแก้ไข'
+                      : null,
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
           ],
         ),
@@ -377,11 +477,24 @@ class _EditStoreScreenState extends ConsumerState<EditStoreScreen> {
     );
   }
 
-  Widget _section(List<Widget> children) {
+  Widget _section(List<Widget> children, {String? title}) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Column(children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Text(title,
+                  style: AppTypography.label2.copyWith(
+                      color: AppColors.semanticGrayNeutralFgHigh,
+                      fontWeight: FontWeight.bold)),
+            ),
+          ...children,
+        ],
+      ),
     );
   }
 
@@ -391,6 +504,8 @@ class _EditStoreScreenState extends ConsumerState<EditStoreScreen> {
     String? Function(String?)? validator,
     TextInputType? keyboardType,
     int maxLines = 1,
+    bool enabled = true,
+    String? helperText,
   }) {
     return Padding(
       padding: const EdgeInsets.only(top: 12),
@@ -400,12 +515,14 @@ class _EditStoreScreenState extends ConsumerState<EditStoreScreen> {
             .copyWith(color: AppColors.semanticGrayNeutralFgHigh),
         decoration: InputDecoration(
           labelText: label,
+          helperText: helperText,
+          helperMaxLines: 2,
           border: const OutlineInputBorder(),
         ),
         validator: validator,
         keyboardType: keyboardType,
         maxLines: maxLines,
-        enabled: !_isSaving,
+        enabled: enabled && !_isSaving,
       ),
     );
   }
