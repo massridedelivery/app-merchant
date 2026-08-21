@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/features/finance/data/finance_repository.dart';
+import 'package:merchant_app/features/finance/models/bank_account.dart';
 import 'package:merchant_app/features/finance/models/finance.dart';
 
 class FinanceSummaryNotifier extends StateNotifier<AsyncValue<FinanceSummary>> {
@@ -108,4 +109,9 @@ final financeTransactionsProvider = StateNotifierProvider<
 final withdrawalsProvider =
     FutureProvider.autoDispose<List<WithdrawalRequest>>((ref) {
   return ref.watch(financeRepositoryProvider).fetchWithdrawals();
+});
+
+/// Merchant payout bank account (`GET /restaurant/bank-account`, SCRUM-60).
+final bankAccountProvider = FutureProvider.autoDispose<BankAccount>((ref) {
+  return ref.watch(financeRepositoryProvider).fetchBankAccount();
 });

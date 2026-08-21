@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/errors/app_failure.dart';
 import 'package:merchant_app/core/network/api_client.dart';
+import 'package:merchant_app/features/finance/models/bank_account.dart';
 import 'package:merchant_app/features/finance/models/finance.dart';
 
 /// Merchant finance + withdrawal endpoints (SCRUM-60), live on driver-api.
@@ -38,6 +39,42 @@ class FinanceRepository {
     return (response.data as List? ?? [])
         .map((e) => WithdrawalRequest.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  // ─── Bank account (SCRUM-60) ─────────────────────────────────────────────
+
+  /// `GET /restaurant/bank-account`. Returns empty strings (not 404) when the
+  /// shop has never linked an account.
+  Future<BankAccount> fetchBankAccount() async {
+    final response =
+        await _api.dio.get('/api/food/restaurant/bank-account');
+    return BankAccount.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// `PUT /restaurant/bank-account`. All three fields are REQUIRED every time —
+  /// the account number can't be read back, so a change means re-typing it in
+  /// full. Only the `bank_code` is sent (the server resolves the bank name).
+  /// An unknown bank code is rejected with 400.
+  Future<void> updateBankAccount({
+    required String bankCode,
+    required String accountNumber,
+    required String accountName,
+  }) async {
+    try {
+      await _api.dio.put('/api/food/restaurant/bank-account', data: {
+        'bank_code': bankCode,
+        'account_number': accountNumber,
+        'account_name': accountName,
+      });
+    } on DioException catch (e) {
+      final data = e.response?.data;
+      final serverMsg =
+          data is Map ? (data['message'] ?? data['error'])?.toString() : null;
+      if (e.response?.statusCode == 400) {
+        throw AppFailure(serverMsg ?? 'ข้อมูลบัญชีไม่ถูกต้อง กรุณาตรวจสอบ', e);
+      }
+      throw AppFailure('บันทึกบัญชีธนาคารไม่สำเร็จ', e);
+    }
   }
 
   /// `POST /restaurant/withdraw` — minimum 100 THB. The backend rejects when

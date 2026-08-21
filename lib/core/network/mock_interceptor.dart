@@ -466,6 +466,27 @@ class MockInterceptor extends Interceptor {
       return _serve(options, handler, Response(requestOptions: options, data: {'message': 'Withdrawal requested successfully'}, statusCode: 200));
     }
 
+    // ─── BANK ACCOUNT (SCRUM-60) ─────────────────────────────
+    if (path.contains('/restaurant/bank-account')) {
+      if (method == 'PUT') {
+        return _serve(options, handler, Response(
+          requestOptions: options,
+          data: {'message': 'bank account updated successfully'},
+          statusCode: 200,
+        ));
+      }
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: {
+          'bank_name': 'ธนาคารไทยพาณิชย์',
+          'bank_code': '014',
+          'account_number_masked': '•••• 1234',
+          'account_name': 'เมย์ ใจดี',
+        },
+        statusCode: 200,
+      ));
+    }
+
     // ─── ADS ────────────────────────────────────────────────
     if (path.contains('/restaurant/ads')) {
       return _serve(options, handler, Response(

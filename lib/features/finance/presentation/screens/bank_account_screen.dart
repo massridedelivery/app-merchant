@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:merchant_app/core/widgets/mass_loading_m.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/core/errors/app_failure.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
-import 'package:merchant_app/core/errors/app_failure.dart';
+import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:merchant_app/features/finance/data/finance_repository.dart';
+import 'package:merchant_app/features/finance/models/bank_account.dart';
 import 'package:merchant_app/features/finance/providers/finance_provider.dart';
-import 'package:merchant_app/core/assets/app_icons.dart';
-import 'package:merchant_app/core/widgets/app_icon.dart';
 
+/// Manage the payout bank account (SCRUM-60). The full account number is never
+/// returned, so editing means re-typing it; a PUT always sends all three
+/// fields, and only the bank code is sent (the server resolves the name).
 class BankAccountScreen extends ConsumerStatefulWidget {
   const BankAccountScreen({super.key});
 
@@ -17,213 +20,213 @@ class BankAccountScreen extends ConsumerStatefulWidget {
 }
 
 class _BankAccountScreenState extends ConsumerState<BankAccountScreen> {
-  static const double _minWithdraw = 100;
-  bool _isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  final _accountNumberController = TextEditingController();
+  final _accountNameController = TextEditingController();
+  String? _bankCode;
+  bool _prefilled = false;
+  bool _saving = false;
 
-  void _showWithdrawDialog(double available) {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: AppColors.semanticGrayNeutralBgWhite,
-          title: Text('ระบุจำนวนเงินที่ต้องการถอน', style: AppTypography.heading6.copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.number,
-                style: AppTypography.body1.copyWith(color: AppColors.semanticGrayNeutralFgHigh),
-                decoration: const InputDecoration(labelText: 'จำนวนเงิน (บาท)'),
-              ),
-              const SizedBox(height: 8),
-              Text('ถอนได้ ฿${available.toStringAsFixed(2)} · ขั้นต่ำ ฿100',
-                  style: AppTypography.caption5.copyWith(color: AppColors.semanticGrayNeutralFgMidOnWhite)),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('ยกเลิก', style: AppTypography.label2.copyWith(color: AppColors.semanticErrorFgHigh)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final amount = double.tryParse(controller.text.trim());
-                if (amount == null || amount <= 0) return;
-                if (amount < _minWithdraw) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ถอนขั้นต่ำ 100 บาท'), backgroundColor: AppColors.error),
-                  );
-                  return;
-                }
-                if (amount > available) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ยอดเงินที่ถอนได้ไม่เพียงพอ'), backgroundColor: AppColors.error),
-                  );
-                  return;
-                }
-                Navigator.pop(context);
-                _processWithdrawal(amount);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.semanticSuccessBgHigh),
-              child: Text('ยืนยัน', style: AppTypography.label2.copyWith(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
+  @override
+  void dispose() {
+    _accountNumberController.dispose();
+    _accountNameController.dispose();
+    super.dispose();
   }
 
-  Future<void> _processWithdrawal(double amount) async {
-    setState(() => _isLoading = true);
-
-    try {
-      await ref.read(financeRepositoryProvider).requestWithdrawal(amount);
-      // Reflect the new pending withdrawal + balance.
-      ref.read(financeSummaryProvider.notifier).fetch();
-      ref.invalidate(withdrawalsProvider);
-
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.semanticGrayNeutralBgWhite,
-          title: const AppIcon(AppIcons.circleCheckFill, color: AppColors.success, size: 64),
-          content: Text(
-            'ส่งคำขอถอนเงินจำนวน ฿${amount.toStringAsFixed(2)} สำเร็จ\n\nระบบจะโอนเข้าบัญชีของคุณภายใน 1-2 วันทำการ',
-            textAlign: TextAlign.center,
-            style: AppTypography.body2.copyWith(color: AppColors.semanticGrayNeutralFgHigh),
-          ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  Navigator.pop(context); // Go back to profile
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.semanticSuccessBgHigh),
-                child: Text('ตกลง', style: AppTypography.label1.copyWith(color: Colors.white)),
-              ),
-            ),
-          ],
-        ),
-      );
-    } on AppFailure catch (f) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(f.message), backgroundColor: AppColors.error),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('เกิดข้อผิดพลาด: $e'), backgroundColor: AppColors.error),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+  /// Seed the form from the current account once (bank + name only — the number
+  /// can't be read back).
+  void _prefill(BankAccount acc) {
+    if (_prefilled) return;
+    _prefilled = true;
+    if (acc.bankCode.isNotEmpty &&
+        kThaiBanks.any((b) => b.code == acc.bankCode)) {
+      _bankCode = acc.bankCode;
     }
+    _accountNameController.text = acc.accountName;
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await ref.read(financeRepositoryProvider).updateBankAccount(
+            bankCode: _bankCode!,
+            accountNumber: _accountNumberController.text.trim(),
+            accountName: _accountNameController.text.trim(),
+          );
+      ref.invalidate(bankAccountProvider);
+      if (!mounted) return;
+      _snack('บันทึกบัญชีธนาคารแล้ว', AppColors.success);
+      Navigator.pop(context, true);
+    } on AppFailure catch (f) {
+      if (mounted) _snack(f.message, AppColors.error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _snack(String msg, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: color),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final summaryAsync = ref.watch(financeSummaryProvider);
-    final summary = summaryAsync.valueOrNull;
-    final available = summary?.availableBalance ?? 0;
-    final canWithdraw = summary?.canWithdraw ?? false;
+    final accountAsync = ref.watch(bankAccountProvider);
     return Scaffold(
+      backgroundColor: AppColors.semanticGrayNeutralBgWhite,
       appBar: AppBar(
-        title: Text('บัญชีธนาคาร', style: AppTypography.heading5.copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
-        iconTheme: const IconThemeData(color: AppColors.semanticGrayNeutralFgHigh),
+        title: Text('บัญชีธนาคาร',
+            style: AppTypography.heading5
+                .copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
+        iconTheme:
+            const IconThemeData(color: AppColors.semanticGrayNeutralFgHigh),
       ),
-      body: _isLoading
-          ? const Center(child: MassLoadingM(size: 72))
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                   Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [AppColors.primary, AppColors.primaryDark],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('ยอดเงินที่ถอนได้', style: AppTypography.body1.copyWith(color: Colors.white.withOpacity(0.7))),
-                        const SizedBox(height: 8),
-                        Text(
-                          '฿${available.toStringAsFixed(2)}',
-                          style: AppTypography.heading1.copyWith(color: Colors.white),
-                        ),
-                        if (summary != null && summary.pendingWithdrawal > 0) ...[
-                          const SizedBox(height: 6),
-                          Text('รอถอน ฿${summary.pendingWithdrawal.toStringAsFixed(2)}',
-                              style: AppTypography.caption5.copyWith(color: Colors.white.withOpacity(0.8))),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Text('บัญชีรับเงินของคุณ', style: AppTypography.heading6.copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
-                  const SizedBox(height: 16),
-                  Card(
-                    color: AppColors.semanticGrayNeutralBgWhite,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: AppColors.semanticGrayNeutralBorderLightGray),
-                    ),
-                    child: ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: AppColors.semanticGrayNeutralBgLightGray, borderRadius: BorderRadius.circular(8)),
-                        child: const AppIcon(AppIcons.buildingLine, color: AppColors.primary),
-                      ),
-                      title: Text('ธนาคารไทยพาณิชย์ (SCB)', style: AppTypography.body2.copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
-                      subtitle: Text('***-***-1234\nนาย สมชาย เข็มกลัด', style: AppTypography.body3.copyWith(color: AppColors.semanticGrayNeutralFgMidOnWhite)),
-                      isThreeLine: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      body: accountAsync.when(
+        loading: () => const Center(child: MassLoadingM(size: 72)),
+        error: (e, _) => Center(child: Text('เกิดข้อผิดพลาด: $e')),
+        data: (acc) {
+          _prefill(acc);
+          return _form(acc);
+        },
+      ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: ElevatedButton(
-            onPressed: (_isLoading || !canWithdraw)
-                ? null
-                : () => _showWithdrawDialog(available),
+            onPressed: _saving ? null : _save,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.semanticSuccessBgHigh,
-              disabledBackgroundColor: const Color(0xFFCBD5E1),
+              backgroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: Text(
-              canWithdraw ? 'ถอนเงินเลย' : 'ยังถอนไม่ได้',
-              style: AppTypography.label1.copyWith(color: Colors.white),
-            ),
+            child: _saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2))
+                : const Text('บันทึกบัญชี',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _form(BankAccount acc) {
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (acc.isLinked) _currentCard(acc),
+          const SizedBox(height: 20),
+          Text('บัญชีรับเงิน',
+              style: AppTypography.label2
+                  .copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
+          const SizedBox(height: 12),
+          _bankDropdown(),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _accountNumberController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: 'เลขที่บัญชี',
+              hintText: acc.isLinked ? 'กรอกเลขบัญชีใหม่ทั้งหมด' : null,
+              border: const OutlineInputBorder(),
+            ),
+            validator: (v) {
+              final s = v?.trim() ?? '';
+              if (s.isEmpty) return 'กรุณากรอกเลขที่บัญชี';
+              if (s.length < 10 || s.length > 15) {
+                return 'เลขบัญชีต้องมี 10–15 หลัก';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _accountNameController,
+            decoration: const InputDecoration(
+              labelText: 'ชื่อบัญชี',
+              border: OutlineInputBorder(),
+            ),
+            validator: (v) =>
+                (v == null || v.trim().isEmpty) ? 'กรุณากรอกชื่อบัญชี' : null,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.lock_outline,
+                  size: 16, color: AppColors.semanticGrayNeutralFgMidOnWhite),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'เพื่อความปลอดภัย ระบบไม่แสดงเลขบัญชีเต็ม '
+                  'การแก้ไขต้องกรอกเลขบัญชีใหม่ทั้งหมด',
+                  style: AppTypography.caption5.copyWith(
+                      color: AppColors.semanticGrayNeutralFgMidOnWhite),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _currentCard(BankAccount acc) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(acc.bankName.isNotEmpty ? acc.bankName : 'บัญชีที่ผูกไว้',
+                    style: AppTypography.label3.copyWith(
+                        color: AppColors.semanticGrayNeutralFgHigh,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text('${acc.accountNumberMasked}  ·  ${acc.accountName}',
+                    style: AppTypography.caption5.copyWith(
+                        color: AppColors.semanticGrayNeutralFgMidOnWhite)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bankDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: _bankCode,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'ธนาคาร',
+        border: OutlineInputBorder(),
+      ),
+      items: [
+        for (final b in kThaiBanks)
+          DropdownMenuItem(value: b.code, child: Text(b.name)),
+      ],
+      onChanged: _saving ? null : (v) => setState(() => _bankCode = v),
+      validator: (v) => (v == null || v.isEmpty) ? 'กรุณาเลือกธนาคาร' : null,
     );
   }
 }
