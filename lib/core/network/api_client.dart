@@ -62,30 +62,32 @@ class ApiClient {
       _refreshDio.interceptors.add(MockInterceptor());
     }
 
-    _dio.interceptors.add(InterceptorsWrapper(
-      onRequest: (options, handler) async {
-        final token = await readToken();
-        if (token != null) {
-          options.headers['Authorization'] = 'Bearer $token';
-        }
-        return handler.next(options);
-      },
-      onError: (DioException e, handler) async {
-        // A 401 means the access token aged out. Refresh once, replay once —
-        // never more, or an unauthorised call becomes an infinite loop.
-        if (e.response?.statusCode != 401 || _isAuthCall(e.requestOptions)) {
-          return handler.next(e);
-        }
-        if (!await _refreshSession()) return handler.next(e);
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final token = await readToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          return handler.next(options);
+        },
+        onError: (DioException e, handler) async {
+          // A 401 means the access token aged out. Refresh once, replay once —
+          // never more, or an unauthorised call becomes an infinite loop.
+          if (e.response?.statusCode != 401 || _isAuthCall(e.requestOptions)) {
+            return handler.next(e);
+          }
+          if (!await refreshSession()) return handler.next(e);
 
-        try {
-          final retried = await _dio.fetch(e.requestOptions);
-          return handler.resolve(retried);
-        } on DioException catch (retryError) {
-          return handler.next(retryError);
-        }
-      },
-    ));
+          try {
+            final retried = await _dio.fetch(e.requestOptions);
+            return handler.resolve(retried);
+          } on DioException catch (retryError) {
+            return handler.next(retryError);
+          }
+        },
+      ),
+    );
   }
 
   Dio get dio => _dio;
@@ -95,12 +97,18 @@ class ApiClient {
   /// Swaps the stored pair for a fresh one. Returns false when the refresh
   /// token is gone or itself rejected — the caller should send the user back to
   /// login.
-  Future<bool> _refreshSession() async {
+  ///
+  /// Public because the WebSocket needs it too: its token is validated only at
+  /// upgrade, so an expired one fails the handshake with no 401 for the retry
+  /// interceptor to catch (SCRUM-53 §11).
+  Future<bool> refreshSession() async {
     final refreshToken = await readRefreshToken();
     if (refreshToken == null) return false;
     try {
-      final response = await _refreshDio
-          .post('/auth/refresh', data: {'refresh_token': refreshToken});
+      final response = await _refreshDio.post(
+        '/auth/refresh',
+        data: {'refresh_token': refreshToken},
+      );
       final data = response.data as Map<String, dynamic>;
       final access = data['access_token'];
       final refresh = data['refresh_token'];
