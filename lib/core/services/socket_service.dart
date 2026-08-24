@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../network/api_client.dart';
@@ -41,9 +40,44 @@ class SocketService {
     'WS_URL',
     defaultValue: 'ws://localhost:8080/ws',
   );
+
+  /// Optional so tests can build a bare service; the provider injects the
+  /// app's real client.
+  SocketService([ApiClient? api]) : _api = api ?? ApiClient();
+
+  final ApiClient _api;
+
   WebSocketChannel? _channel;
   Timer? _mockTimer;
   Timer? _reconnectTimer;
+
+  /// Consecutive failed attempts, used for the backoff delay. Reset the moment
+  /// a connection is actually established.
+  int _attempt = 0;
+
+  /// Whether a token refresh has already been tried since the last successful
+  /// connection, so a dead refresh token cannot spin the loop.
+  bool _refreshTried = false;
+
+  /// A connect() awaiting its handshake outlives dispose(), and so can a
+  /// reconnect timer that fired first. Adding to a closed controller throws, so
+  /// every emit goes through the guards below.
+  bool _disposed = false;
+
+  /// Doubles from [_baseReconnectDelay] and stops at [_maxReconnectDelay].
+  /// SCRUM-53 §11 asks for backoff; a fixed retry hammers the host for as long
+  /// as it is down, and with an expired token that is forever.
+  static const Duration _baseReconnectDelay = Duration(seconds: 2);
+  static const Duration _maxReconnectDelay = Duration(seconds: 60);
+
+  @visibleForTesting
+  Duration delayForAttempt(int attempt) {
+    final ms = _baseReconnectDelay.inMilliseconds * (1 << attempt.clamp(0, 10));
+    return ms >= _maxReconnectDelay.inMilliseconds
+        ? _maxReconnectDelay
+        : Duration(milliseconds: ms);
+  }
+
   /// Mirrors [ApiClient.useMock] unless [connect] is told otherwise, so HTTP
   /// and the socket can never end up in different modes — a half-mocked app
   /// shows fake orders while real requests go out, which reads as "it works".
@@ -66,52 +100,91 @@ class SocketService {
   /// [mockMode] defaults to whatever the HTTP client is doing. Pass it
   /// explicitly only to force one transport for a test or a demo.
   Future<void> connect({bool? mockMode}) async {
+    if (_disposed) return;
     _isMockMode = mockMode ?? ApiClient.useMock;
 
     if (_isMockMode) {
       debugPrint('[SocketService] mock mode — orders come from a local timer');
       _startMockBroadcasting();
-      _connection.add(true);
+      _emitConnection(true);
       return;
     }
 
     if (_channel != null) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    if (token == null) return;
+    // Read through ApiClient rather than SharedPreferences directly, so the
+    // storage key lives in exactly one place.
+    final token = await _api.readToken();
+    if (token == null) {
+      // Previously a silent return: no signal, no retry, and since MainScreen
+      // calls connect() once in initState the socket stayed dead for the whole
+      // session.
+      debugPrint('[SocketService] no access token yet — will retry');
+      _emitConnection(false);
+      _scheduleReconnect();
+      return;
+    }
 
     try {
       debugPrint('[SocketService] connecting to $wsUrl');
-      final uri = Uri.parse('$wsUrl?token=$token');
-      _channel = WebSocketChannel.connect(uri);
-      _connection.add(true);
+      final channel = WebSocketChannel.connect(
+        Uri.parse('$wsUrl?token=$token'),
+      );
+      // `connect` is lazy — it returns before the handshake. Announcing the
+      // connection here rather than after `ready` told listeners to reconcile
+      // against a socket that might never come up.
+      await channel.ready;
 
-      _channel!.stream.listen(
+      _channel = channel;
+      _attempt = 0;
+      _refreshTried = false;
+      _emitConnection(true);
+
+      channel.stream.listen(
         (message) {
           try {
             final data = jsonDecode(message as String);
-            _controller.add(data as Map<String, dynamic>);
+            _emitEvent(data as Map<String, dynamic>);
           } catch (e) {
             debugPrint('Error parsing WebSocket message: $e');
           }
         },
         onError: (error) {
           debugPrint('WebSocket Error: $error');
-          _connection.add(false);
+          _emitConnection(false);
           _scheduleReconnect();
         },
         onDone: () {
           debugPrint('WebSocket Connection Closed');
-          _connection.add(false);
+          _emitConnection(false);
           _scheduleReconnect();
         },
       );
     } catch (e) {
-      debugPrint('Could not connect to WebSocket: $e');
-      _scheduleReconnect();
+      debugPrint('[SocketService] handshake failed: $e');
+      _channel = null;
+      _emitConnection(false);
+      await _retryAfterFailedHandshake();
     }
+  }
+
+  /// The token is checked at upgrade only (SCRUM-53 §11), so an expired one
+  /// fails the handshake exactly like an outage — there is no 401 for the HTTP
+  /// retry interceptor to see. Refresh once per connection cycle before falling
+  /// back to plain backoff; without this the merchant's socket dies silently
+  /// after the access token's 24h and no new-order alert ever arrives again.
+  Future<void> _retryAfterFailedHandshake() async {
+    if (!_refreshTried) {
+      _refreshTried = true;
+      if (await _api.refreshSession()) {
+        debugPrint('[SocketService] token refreshed — reconnecting now');
+        return connect(mockMode: _isMockMode);
+      }
+      // Refresh itself failed: the session is gone, so the app is about to be
+      // sent back to login. Keep backing off rather than spinning.
+      debugPrint('[SocketService] refresh failed — session is likely gone');
+    }
+    _scheduleReconnect();
   }
 
   /// Emits a `new_food_order` frame. The `order` payload is the narrower
@@ -119,7 +192,7 @@ class SocketService {
   /// `tier`, `driver_info` or `polyline` (SCRUM-53 §11).
   void simulateNewOrder() {
     final mockOrderId = 'order_mock_${DateTime.now().millisecondsSinceEpoch}';
-    _controller.add({
+    _emitEvent({
       'type': SocketEventType.newFoodOrder,
       'order': {
         'id': mockOrderId,
@@ -145,7 +218,7 @@ class SocketService {
             ],
           },
         ],
-      }
+      },
     });
   }
 
@@ -159,7 +232,7 @@ class SocketService {
     String? driverId,
     String? reason,
   }) {
-    _controller.add({
+    _emitEvent({
       'type': type,
       'order_id': orderId,
       'status': ?status,
@@ -180,12 +253,27 @@ class SocketService {
     });
   }
 
+  void _emitConnection(bool connected) {
+    if (_disposed) return;
+    _connection.add(connected);
+  }
+
+  void _emitEvent(Map<String, dynamic> event) {
+    if (_disposed) return;
+    _controller.add(event);
+  }
+
   void _scheduleReconnect() {
+    if (_disposed) return;
     _channel = null;
     _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(const Duration(seconds: 3), () {
-      connect(mockMode: _isMockMode);
-    });
+    final delay = delayForAttempt(_attempt);
+    _attempt++;
+    debugPrint(
+      '[SocketService] reconnecting in ${delay.inSeconds}s '
+      '(attempt $_attempt)',
+    );
+    _reconnectTimer = Timer(delay, () => connect(mockMode: _isMockMode));
   }
 
   void sendEvent(Map<String, dynamic> event) {
@@ -199,9 +287,12 @@ class SocketService {
     _reconnectTimer?.cancel();
     _channel?.sink.close();
     _channel = null;
+    _attempt = 0;
+    _refreshTried = false;
   }
 
   void dispose() {
+    _disposed = true;
     disconnect();
     _controller.close();
     _connection.close();
@@ -212,7 +303,7 @@ class SocketService {
 /// is torn down with it. Override in tests with
 /// `socketServiceProvider.overrideWithValue(fake)`.
 final socketServiceProvider = Provider<SocketService>((ref) {
-  final service = SocketService();
+  final service = SocketService(ref.watch(apiClientProvider));
   ref.onDispose(service.dispose);
   return service;
 });
