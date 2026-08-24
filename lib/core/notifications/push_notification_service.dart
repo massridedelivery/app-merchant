@@ -156,10 +156,14 @@ class PushNotificationService {
 
     final notification = message.notification;
     final isOrder = _isNewOrder(message);
-    final title = notification?.title ??
-        (isOrder ? 'ออเดอร์ใหม่' : 'การแจ้งเตือน');
-    final body = notification?.body ??
-        (isOrder ? 'มีออเดอร์เข้ามาใหม่ แตะเพื่อดูรายละเอียด' : '');
+    // Orders always use our own wording (override the push payload) so the
+    // merchant always hears the same call to action; other pushes keep theirs.
+    final title = isOrder
+        ? 'ออเดอร์มาแล้ว'
+        : (notification?.title ?? 'การแจ้งเตือน');
+    final body = isOrder
+        ? 'ฝากพี่ๆช่วยด้วยนะครับ'
+        : (notification?.body ?? '');
 
     final channel = isOrder ? _orderChannel : _defaultChannel;
     _localNotifications.show(

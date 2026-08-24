@@ -913,7 +913,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'มีออเดอร์ใหม่เข้ามา!',
+                    'ออเดอร์มาแล้ว ฝากพี่ๆช่วยด้วยนะครับ',
                     style: AppTypography.label2.copyWith(
                       color: AppColors.semanticGrayNeutralBgWhite,
                     ),
