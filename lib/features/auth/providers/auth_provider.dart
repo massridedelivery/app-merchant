@@ -201,14 +201,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     return fallback;
   }
 
-  /// Shortcut used by the onboarding screens while the real flow is stubbed.
-  /// Deliberately runs the same path as [login] so claims, the role check and
-  /// the restaurant id all behave identically against MockInterceptor.
-  Future<void> mockLogin() async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    await login('owner@somchai-kitchen.co.th', 'Sup3rSecret!');
-  }
-
   /// Signs out everywhere — the endpoint revokes every refresh token on the
   /// account. The local session is dropped even if the call fails, so a network
   /// blip cannot strand the merchant in a logged-in shell.
