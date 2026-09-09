@@ -90,6 +90,11 @@ class AuthRepository {
   /// out on all their devices, not just this one.
   Future<void> logout() => _api.dio.post('/auth/logout');
 
+  /// Permanently deletes the signed-in merchant's account and its data
+  /// (SCRUM-114). Required by the App Store / Google Play for any app with
+  /// accounts. Auth namespace, so `{host}/auth/account`.
+  Future<void> deleteAccount() => _api.dio.delete('/auth/account');
+
   Future<String?> currentToken() => _api.readToken();
 
   Future<String?> currentRefreshToken() => _api.readRefreshToken();

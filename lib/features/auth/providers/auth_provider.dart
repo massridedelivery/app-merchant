@@ -223,6 +223,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (!mounted) return;
     state = state.copyWith(isAuthenticated: false, clearClaims: true);
   }
+
+  /// Permanently deletes the account (SCRUM-114). Unlike [logout], the local
+  /// session is cleared only on success — a failed call rethrows and leaves
+  /// the merchant signed in, because their account still exists and they may
+  /// want to retry.
+  Future<void> deleteAccount() async {
+    await _repository.deleteAccount();
+    await _repository.forgetSession();
+    if (!mounted) return;
+    state = state.copyWith(isAuthenticated: false, clearClaims: true);
+  }
 }
 
 // Provider

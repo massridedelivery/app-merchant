@@ -292,6 +292,19 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                         onPressed: () => _confirmLogout(context, ref),
                       ),
+                      const SizedBox(height: 16),
+
+                      // ─── Delete account (App Store / Play requirement) ──
+                      TextButton(
+                        onPressed: () => _confirmDeleteAccount(context, ref),
+                        child: Text(
+                          'ลบบัญชี',
+                          style: AppTypography.label3.copyWith(
+                            color: AppColors.error,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 48),
                     ],
                   ),
@@ -332,6 +345,48 @@ class ProfileScreen extends ConsumerWidget {
     );
     if (confirmed != true) return;
     await ref.read(authProvider.notifier).logout();
+  }
+
+  /// Permanent account deletion — required by the App Store (5.1.1(v)) and
+  /// Google Play for any app with sign-in. Deletes server-side, then the auth
+  /// state flips to unauthenticated and the router returns to the welcome
+  /// screen. A failed call keeps the merchant signed in (nothing was deleted).
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ลบบัญชีถาวร'),
+        content: const Text(
+          'การลบบัญชีจะลบข้อมูลร้าน เมนู การเงิน และเอกสารทั้งหมดอย่างถาวร '
+          'กู้คืนไม่ได้ และจะออกจากระบบทุกเครื่องทันที\n\n'
+          'ยืนยันลบบัญชีนี้หรือไม่?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('ยกเลิก'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('ลบบัญชีถาวร'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(authProvider.notifier).deleteAccount();
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('ลบบัญชีไม่สำเร็จ กรุณาลองใหม่ หรือติดต่อฝ่ายสนับสนุน'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   Widget _buildMenuCard({
