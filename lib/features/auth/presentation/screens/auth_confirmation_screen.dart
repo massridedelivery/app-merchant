@@ -1,6 +1,8 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:merchant_app/core/config/legal_urls.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
@@ -25,6 +27,23 @@ class _AuthConfirmationScreenState
   bool _hasReferralCode = false;
 
   bool _isInputValid = false;
+
+  // Tappable legal links inside the agreement text (App Store / Play require
+  // the policy/terms to be reachable). Held so they can be disposed.
+  late final _termsTap = TapGestureRecognizer()
+    ..onTap = () => openLegalUrl(context, LegalUrls.terms);
+  late final _privacyTap = TapGestureRecognizer()
+    ..onTap = () => openLegalUrl(context, LegalUrls.privacy);
+  late final _merchantTermsTap = TapGestureRecognizer()
+    ..onTap = () => openLegalUrl(context, LegalUrls.merchantTerms);
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
+    _merchantTermsTap.dispose();
+    super.dispose();
+  }
 
   void _validateInput() {
     setState(() {
@@ -152,7 +171,9 @@ class _AuthConfirmationScreenState
                                 style: AppTypography.body2.copyWith(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
                                 ),
+                                recognizer: _termsTap,
                               ),
                               const TextSpan(text: ', '),
                               TextSpan(
@@ -160,7 +181,9 @@ class _AuthConfirmationScreenState
                                 style: AppTypography.body2.copyWith(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
                                 ),
+                                recognizer: _privacyTap,
                               ),
                               const TextSpan(text: ' และ '),
                               TextSpan(
@@ -168,7 +191,9 @@ class _AuthConfirmationScreenState
                                 style: AppTypography.body2.copyWith(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
                                 ),
+                                recognizer: _merchantTermsTap,
                               ),
                               const TextSpan(text: ' ของ Mass Merchant'),
                             ],
