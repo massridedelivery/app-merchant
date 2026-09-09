@@ -7,7 +7,6 @@ import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_theme.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/auth/presentation/widgets/auth_step_indicator.dart';
-import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
@@ -300,11 +299,13 @@ class _AuthConfirmationScreenState
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isInputValid
-                      ? () async {
-                          await ref.read(authProvider.notifier).mockLogin();
-                          if (context.mounted) {
-                            context.go('/');
-                          }
+                      ? () {
+                          // The account and session were already created when
+                          // the OTP was verified earlier in the flow, so just
+                          // finish onboarding — the router sends the (now
+                          // authenticated) merchant to the home shell. No fake
+                          // login.
+                          context.go('/');
                         }
                       : null,
                   style: ElevatedButton.styleFrom(
