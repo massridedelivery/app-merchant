@@ -3,10 +3,17 @@ import 'package:go_router/go_router.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
+import 'package:merchant_app/core/config/legal_urls.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
+
+  TextStyle get _legalLink => AppTypography.caption5.copyWith(
+        color: AppColors.primary,
+        fontWeight: FontWeight.bold,
+        decoration: TextDecoration.underline,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -147,12 +154,34 @@ class WelcomeScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 32),
                       Text(
-                        'การใช้งานแอปพลิเคชันถือว่าคุณยอมรับ\nเงื่อนไขการใช้บริการ และ นโยบายความเป็นส่วนตัว',
+                        'การใช้งานแอปพลิเคชันถือว่าคุณยอมรับ',
                         style: AppTypography.caption5.copyWith(
                           color: AppColors.semanticGrayNeutralFgLowOnWhite,
                           height: 1.5,
                         ),
                         textAlign: TextAlign.center,
+                      ),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () =>
+                                openLegalUrl(context, LegalUrls.terms),
+                            child: Text('เงื่อนไขการใช้บริการ',
+                                style: _legalLink),
+                          ),
+                          Text(' และ ',
+                              style: AppTypography.caption5.copyWith(
+                                color: AppColors
+                                    .semanticGrayNeutralFgLowOnWhite,
+                              )),
+                          GestureDetector(
+                            onTap: () =>
+                                openLegalUrl(context, LegalUrls.privacy),
+                            child: Text('นโยบายความเป็นส่วนตัว',
+                                style: _legalLink),
+                          ),
+                        ],
                       ),
                     ],
                   ),
