@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/finance/data/finance_repository.dart';
 import 'package:merchant_app/features/finance/models/bank_account.dart';
 import 'package:merchant_app/features/finance/models/finance.dart';
@@ -25,7 +26,10 @@ class FinanceSummaryNotifier extends StateNotifier<AsyncValue<FinanceSummary>> {
 
 final financeSummaryProvider =
     StateNotifierProvider<FinanceSummaryNotifier, AsyncValue<FinanceSummary>>(
-        (ref) => FinanceSummaryNotifier(ref.watch(financeRepositoryProvider)));
+        (ref) {
+  ref.watch(restaurantIdProvider); // rebuild on account change
+  return FinanceSummaryNotifier(ref.watch(financeRepositoryProvider));
+});
 
 class FinanceEarningsNotifier
     extends StateNotifier<AsyncValue<FinanceEarnings>> {
@@ -50,7 +54,10 @@ class FinanceEarningsNotifier
 
 final financeEarningsProvider =
     StateNotifierProvider<FinanceEarningsNotifier, AsyncValue<FinanceEarnings>>(
-        (ref) => FinanceEarningsNotifier(ref.watch(financeRepositoryProvider)));
+        (ref) {
+  ref.watch(restaurantIdProvider); // rebuild on account change
+  return FinanceEarningsNotifier(ref.watch(financeRepositoryProvider));
+});
 
 /// Paginated transactions ledger. [loadMore] appends the next page.
 class FinanceTransactionsNotifier
@@ -102,17 +109,22 @@ class FinanceTransactionsNotifier
 
 final financeTransactionsProvider = StateNotifierProvider<
     FinanceTransactionsNotifier, AsyncValue<TransactionsPage>>(
-  (ref) => FinanceTransactionsNotifier(ref.watch(financeRepositoryProvider)),
+  (ref) {
+    ref.watch(restaurantIdProvider); // rebuild on account change
+    return FinanceTransactionsNotifier(ref.watch(financeRepositoryProvider));
+  },
 );
 
 /// Withdrawal history (`GET /restaurant/withdrawals`).
 final withdrawalsProvider =
     FutureProvider.autoDispose<List<WithdrawalRequest>>((ref) {
+  ref.watch(restaurantIdProvider); // refetch on account change
   return ref.watch(financeRepositoryProvider).fetchWithdrawals();
 });
 
 /// Merchant payout bank account (`GET /restaurant/bank-account`, SCRUM-60).
 final bankAccountProvider = FutureProvider.autoDispose<BankAccount>((ref) {
+  ref.watch(restaurantIdProvider); // refetch on account change
   return ref.watch(financeRepositoryProvider).fetchBankAccount();
 });
 
@@ -151,4 +163,7 @@ class AutoPayoutNotifier extends StateNotifier<AsyncValue<AutoPayoutSettings>> {
 
 final autoPayoutProvider = StateNotifierProvider<AutoPayoutNotifier,
         AsyncValue<AutoPayoutSettings>>(
-    (ref) => AutoPayoutNotifier(ref.watch(financeRepositoryProvider)));
+    (ref) {
+  ref.watch(restaurantIdProvider); // rebuild on account change
+  return AutoPayoutNotifier(ref.watch(financeRepositoryProvider));
+});

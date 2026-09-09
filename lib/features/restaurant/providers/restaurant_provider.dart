@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/restaurant/data/restaurant_repository.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_profile.dart';
 import 'package:merchant_app/core/errors/app_failure.dart';
@@ -134,5 +135,10 @@ class RestaurantProfileNotifier
 
 final restaurantProfileProvider = StateNotifierProvider<
     RestaurantProfileNotifier, AsyncValue<RestaurantProfile>>(
-  (ref) => RestaurantProfileNotifier(ref.watch(restaurantRepositoryProvider)),
+  (ref) {
+    // Rebuild (and re-fetch) whenever the signed-in account changes, so a new
+    // login never shows the previous merchant's cached profile.
+    ref.watch(restaurantIdProvider);
+    return RestaurantProfileNotifier(ref.watch(restaurantRepositoryProvider));
+  },
 );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/notifications/push_notification_service.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/orders/data/order_repository.dart';
 import 'package:merchant_app/core/services/socket_service.dart';
 import 'package:merchant_app/features/orders/models/order.dart';
@@ -337,8 +338,13 @@ class OrderNotifier extends StateNotifier<OrderState> {
 }
 
 final orderProvider = StateNotifierProvider<OrderNotifier, OrderState>(
-  (ref) => OrderNotifier(
-    ref.watch(orderRepositoryProvider),
-    ref.watch(socketServiceProvider),
-  ),
+  (ref) {
+    // Rebuild on account change: tears down the old socket subscription and
+    // refetches so one merchant never sees another's live orders.
+    ref.watch(restaurantIdProvider);
+    return OrderNotifier(
+      ref.watch(orderRepositoryProvider),
+      ref.watch(socketServiceProvider),
+    );
+  },
 );
