@@ -95,6 +95,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
     required String name,
     required String description,
     required double price,
+    String? imageUrl,
   }) async {
     try {
       final newItem = await _repository.createItem(
@@ -102,6 +103,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
         name: name,
         description: description,
         price: price,
+        imageUrl: imageUrl,
       );
       if (newItem == null || !mounted) return;
       state = AsyncValue.data([
@@ -120,6 +122,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
     required String description,
     required double price,
     required bool isAvailable,
+    String? imageUrl,
   }) async {
     final updated = _findItem(id)?.copyWith(
       categoryId: categoryId,
@@ -127,6 +130,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
       description: description,
       price: price,
       isAvailable: isAvailable,
+      imageUrl: imageUrl,
     );
     if (updated == null) return;
 
@@ -138,6 +142,7 @@ class MenuNotifier extends StateNotifier<AsyncValue<List<MenuCategory>>> {
         description: description,
         price: price,
         isAvailable: isAvailable,
+        imageUrl: imageUrl,
       );
       if (!mounted) return;
       // Drop it everywhere first, then re-add — the edit may have moved the

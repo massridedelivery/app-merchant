@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:merchant_app/core/widgets/mass_loading_m.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/core/media/image_pick.dart';
+import 'package:merchant_app/core/media/media_repository.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
+import 'package:merchant_app/features/menu/presentation/widgets/menu_image_field.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
 
 class AddMenuItemDialog extends ConsumerStatefulWidget {
@@ -19,6 +22,7 @@ class _AddMenuItemDialogState extends ConsumerState<AddMenuItemDialog> {
   final _priceController = TextEditingController();
   
   String? _selectedCategoryId;
+  PickedImage? _pickedImage;
   bool _isLoading = false;
 
   Future<void> _submit() async {
@@ -33,12 +37,23 @@ class _AddMenuItemDialogState extends ConsumerState<AddMenuItemDialog> {
     setState(() => _isLoading = true);
 
     try {
+      // Upload the photo first (if any) — the menu endpoint wants the file_key,
+      // not the raw image.
+      String? imageKey;
+      if (_pickedImage != null) {
+        imageKey = await ref.read(mediaRepositoryProvider).upload(
+              category: MediaCategory.menu,
+              contentType: _pickedImage!.contentType,
+              bytes: _pickedImage!.bytes,
+            );
+      }
       final price = double.tryParse(_priceController.text) ?? 0.0;
       await ref.read(menuProvider.notifier).addItem(
         categoryId: _selectedCategoryId!,
         name: _nameController.text,
         description: _descController.text,
         price: price,
+        imageUrl: imageKey,
       );
 
       if (!mounted) return;
@@ -72,7 +87,16 @@ class _AddMenuItemDialogState extends ConsumerState<AddMenuItemDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text('เพิ่มรายการเมนูใหม่', style: AppTypography.heading6.copyWith(color: AppColors.semanticGrayNeutralFgHigh)),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // Menu photo (optional)
+              Center(
+                child: MenuImageField(
+                  enabled: !_isLoading,
+                  onPicked: (p) => _pickedImage = p,
+                ),
+              ),
+              const SizedBox(height: 20),
 
               // Category Dropdown
               menuState.maybeWhen(

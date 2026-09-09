@@ -293,6 +293,7 @@ class MockInterceptor extends Interceptor {
             'name': data['name'],
             'description': data['description'] ?? '',
             'price': data['price'],
+            'image_url': data['image_url'],
             'is_available': true,
             'modifiers': [],
           },
