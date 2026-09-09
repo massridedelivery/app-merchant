@@ -109,13 +109,16 @@ class MediaRepository {
     // not exist. Stop here in mock mode — the size check above has already run,
     // which is the only part worth exercising offline.
     if (ApiClient.useMock) return;
+    // Send the raw bytes as the body. Dio derives Content-Length from them, so a
+    // one-shot Stream (which forced us to set the header by hand and left the
+    // length open to drift from the payload) buys nothing here — the bytes are
+    // already in memory.
     await _storage.put(
       ticket.uploadUrl,
-      data: Stream.fromIterable([bytes]),
+      data: bytes,
       options: Options(
         headers: {
           Headers.contentTypeHeader: contentType,
-          Headers.contentLengthHeader: bytes.length,
         },
       ),
     );

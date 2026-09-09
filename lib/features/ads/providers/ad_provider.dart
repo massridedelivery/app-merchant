@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/features/ads/data/ad_repository.dart';
 import 'package:merchant_app/features/ads/models/ad_campaign.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/core/errors/app_failure.dart';
 
 class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
@@ -50,5 +51,7 @@ class AdNotifier extends StateNotifier<AsyncValue<AdCampaign?>> {
 
 final adProvider =
     StateNotifierProvider<AdNotifier, AsyncValue<AdCampaign?>>((ref) {
+  // Rebuild on account change so the ad campaign never carries over.
+  ref.watch(restaurantIdProvider);
   return AdNotifier(ref.watch(adRepositoryProvider))..fetchAd();
 });

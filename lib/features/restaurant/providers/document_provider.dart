@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:merchant_app/core/errors/app_failure.dart';
 import 'package:merchant_app/core/media/media_repository.dart';
+import 'package:merchant_app/features/auth/providers/auth_provider.dart';
 import 'package:merchant_app/features/restaurant/data/restaurant_repository.dart';
 import 'package:merchant_app/features/restaurant/models/restaurant_document.dart';
 
@@ -74,10 +75,14 @@ class RestaurantDocumentsNotifier
 
 final restaurantDocumentsProvider = StateNotifierProvider<
     RestaurantDocumentsNotifier, AsyncValue<List<RestaurantDocument>>>(
-  (ref) => RestaurantDocumentsNotifier(
-    ref.watch(restaurantRepositoryProvider),
-    ref.watch(mediaRepositoryProvider),
-  ),
+  (ref) {
+    // Rebuild on account change so KYC docs never carry over between logins.
+    ref.watch(restaurantIdProvider);
+    return RestaurantDocumentsNotifier(
+      ref.watch(restaurantRepositoryProvider),
+      ref.watch(mediaRepositoryProvider),
+    );
+  },
 );
 
 /// The newest document filed under each type.
