@@ -107,6 +107,14 @@ class MockInterceptor extends Interceptor {
         statusCode: 200,
       ));
     }
+    // Account deletion (SCRUM-114).
+    if (path.contains('/auth/account') && method == 'DELETE') {
+      return _serve(options, handler, Response(
+        requestOptions: options,
+        data: {'message': 'account deleted successfully'},
+        statusCode: 200,
+      ));
+    }
 
     // ─── RESTAURANT PROFILE ─────────────────────────────────
     if (path.contains('/restaurant/profile')) {

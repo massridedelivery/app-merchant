@@ -39,6 +39,8 @@ class _FakeAuthRepository extends AuthRepository {
   Object? refreshError;
   bool loggedOut = false;
   bool sessionForgotten = false;
+  bool accountDeleted = false;
+  Object? deleteError;
 
   @override
   Future<String?> currentToken() async => storedToken;
@@ -71,6 +73,12 @@ class _FakeAuthRepository extends AuthRepository {
   @override
   Future<void> logout() async {
     loggedOut = true;
+  }
+
+  @override
+  Future<void> deleteAccount() async {
+    if (deleteError != null) throw deleteError!;
+    accountDeleted = true;
   }
 
   @override
@@ -235,6 +243,37 @@ void main() {
       final state = container.read(authProvider);
       expect(state.isAuthenticated, isFalse);
       expect(state.restaurantId, isNull);
+    });
+  });
+
+  group('deleteAccount (SCRUM-114)', () {
+    test('deletes server-side then drops the local session', () async {
+      repo.storedToken = jwt();
+      final container = boot();
+      await settled(container);
+
+      await container.read(authProvider.notifier).deleteAccount();
+
+      expect(repo.accountDeleted, isTrue);
+      expect(repo.sessionForgotten, isTrue);
+      final state = container.read(authProvider);
+      expect(state.isAuthenticated, isFalse);
+      expect(state.restaurantId, isNull);
+    });
+
+    test('a failed delete keeps the session (nothing was deleted)', () async {
+      repo.storedToken = jwt();
+      repo.deleteError = Exception('boom');
+      final container = boot();
+      await settled(container);
+
+      await expectLater(
+        container.read(authProvider.notifier).deleteAccount(),
+        throwsA(anything),
+      );
+
+      expect(repo.sessionForgotten, isFalse);
+      expect(container.read(authProvider).isAuthenticated, isTrue);
     });
   });
 }
