@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:merchant_app/core/media/image_pick.dart';
+import 'package:merchant_app/core/media/media_repository.dart';
 import 'package:merchant_app/core/theme/app_colors.dart';
 import 'package:merchant_app/core/theme/app_typography.dart';
 import 'package:merchant_app/features/menu/models/menu.dart';
 import 'package:merchant_app/features/menu/presentation/widgets/confirm_delete_dialog.dart';
+import 'package:merchant_app/features/menu/presentation/widgets/menu_image_field.dart';
 import 'package:merchant_app/features/menu/providers/menu_provider.dart';
 
 class EditMenuItemDialog extends ConsumerStatefulWidget {
@@ -25,6 +28,7 @@ class _EditMenuItemDialogState extends ConsumerState<EditMenuItemDialog> {
 
   late String _categoryId = widget.item.categoryId;
   late bool _isAvailable = widget.item.isAvailable;
+  PickedImage? _pickedImage;
   bool _isLoading = false;
 
   @override
@@ -45,6 +49,16 @@ class _EditMenuItemDialogState extends ConsumerState<EditMenuItemDialog> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
+      // Only upload when the merchant picked a new photo; otherwise leave
+      // imageUrl null so the existing image is kept (patch).
+      String? imageKey;
+      if (_pickedImage != null) {
+        imageKey = await ref.read(mediaRepositoryProvider).upload(
+              category: MediaCategory.menu,
+              contentType: _pickedImage!.contentType,
+              bytes: _pickedImage!.bytes,
+            );
+      }
       await ref.read(menuProvider.notifier).updateItem(
             id: widget.item.id,
             categoryId: _categoryId,
@@ -52,6 +66,7 @@ class _EditMenuItemDialogState extends ConsumerState<EditMenuItemDialog> {
             description: _descController.text,
             price: double.tryParse(_priceController.text) ?? widget.item.price,
             isAvailable: _isAvailable,
+            imageUrl: imageKey,
           );
       if (!mounted) return;
       _report('บันทึกเมนูแล้ว', AppColors.success);
@@ -106,7 +121,17 @@ class _EditMenuItemDialogState extends ConsumerState<EditMenuItemDialog> {
                 style: AppTypography.heading6
                     .copyWith(color: AppColors.semanticGrayNeutralFgHigh),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // Menu photo — shows the current image; tap to replace.
+              Center(
+                child: MenuImageField(
+                  initialImageUrl: widget.item.imageUrl,
+                  enabled: !_isLoading,
+                  onPicked: (p) => _pickedImage = p,
+                ),
+              ),
+              const SizedBox(height: 20),
 
               if (categories.isNotEmpty)
                 DropdownButtonFormField<String>(

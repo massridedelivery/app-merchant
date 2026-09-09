@@ -87,6 +87,13 @@ void main() {
     );
     addTearDown(container.dispose);
 
+    // Taller surface so the (now taller, with a photo field) dialog fits and
+    // its buttons aren't off-screen for taps.
+    tester.view.physicalSize = const Size(1000, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
