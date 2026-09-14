@@ -25,7 +25,12 @@ platform :ios do
     # Pass a unique build number so TestFlight accepts each upload.
     build_number = ENV["BUILD_NUMBER"]
     build_number_arg = build_number ? " --build-number=#{build_number}" : ""
-    sh("cd .. && flutter build ipa --release#{build_number_arg} --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=env/prod.json")
+
+    # The app ships under the production identity (com.mass.merchantApp) but for
+    # now points at the DEV backend — set ENV_FILE=env/prod.json to cut over to
+    # the production endpoint when it's ready.
+    env_file = ENV["ENV_FILE"] || "env/dev.json"
+    sh("cd .. && flutter build ipa --release#{build_number_arg} --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=#{env_file}")
 
     # Flutter names the IPA after the app, which can differ from the pubspec
     # name (e.g. "Runner.ipa"). Glob for whatever it produced instead of
