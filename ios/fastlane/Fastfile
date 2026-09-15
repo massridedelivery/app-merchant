@@ -1,3 +1,5 @@
+require "shellwords" # String#shellescape for the build paths below
+
 default_platform(:ios)
 
 APP_IDENTIFIER = "com.mass.merchantApp".freeze
@@ -30,13 +32,19 @@ platform :ios do
     # now points at the DEV backend — set ENV_FILE=env/prod.json to cut over to
     # the production endpoint when it's ready.
     env_file = ENV["ENV_FILE"] || "env/dev.json"
-    sh("cd .. && flutter build ipa --release#{build_number_arg} --export-options-plist=ios/ExportOptions.plist --dart-define-from-file=#{env_file}")
+
+    # fastlane runs `sh` from ios/fastlane, so a CWD-relative `cd ..` lands in
+    # ios/, not the Flutter project root — leaving `flutter build ipa` unable to
+    # find ios/ExportOptions.plist. Resolve everything from the Fastfile's own
+    # location (__dir__ == ios/fastlane) so the paths hold no matter the CWD.
+    repo_root = File.expand_path("../..", __dir__)
+    export_plist = File.expand_path("../ExportOptions.plist", __dir__)
+    sh("cd #{repo_root.shellescape} && flutter build ipa --release#{build_number_arg} --export-options-plist=#{export_plist.shellescape} --dart-define-from-file=#{env_file}")
 
     # Flutter names the IPA after the app, which can differ from the pubspec
     # name (e.g. "Runner.ipa"). Glob for whatever it produced instead of
     # hard-coding a filename that a rename would silently break.
-    # Relative to fastlane's working dir (ios/), same base as the build output.
-    ipa_path = Dir.glob("../build/ios/ipa/*.ipa").first
+    ipa_path = Dir.glob(File.join(repo_root, "build/ios/ipa/*.ipa")).first
     UI.user_error!("No .ipa found in build/ios/ipa/ — did `flutter build ipa` succeed?") unless ipa_path
 
     upload_to_testflight(
