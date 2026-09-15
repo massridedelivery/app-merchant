@@ -11,7 +11,7 @@ class LegalUrls {
   static const String privacy = 'https://massridedelivery.com/privacy';
   static const String terms = 'https://massridedelivery.com/terms';
   static const String merchantTerms =
-      'https://massridedelivery.com/merchant-terms';
+      'https://massridedelivery.com/merchant/terms';
 }
 
 /// Opens a legal page in the external browser. Falls back to a snackbar if the
