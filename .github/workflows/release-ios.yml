@@ -88,13 +88,6 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
-      # ruby/setup-ruby switches the active Ruby, which leaves the runner's
-      # preinstalled CocoaPods "installed but broken" (built against a different
-      # Ruby). `flutter build ipa` calls `pod` directly, so install a working
-      # pod on the active Ruby's PATH to fix it.
-      - name: Install CocoaPods
-        run: gem install cocoapods
-
       # App Store Connect API key, base64-encoded in secrets, written to disk
       # for Fastlane to authenticate without an Apple ID / 2FA.
       - name: Write App Store Connect API key
