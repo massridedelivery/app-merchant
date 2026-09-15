@@ -12,6 +12,12 @@ class LegalUrls {
   static const String terms = 'https://massridedelivery.com/terms';
   static const String merchantTerms =
       'https://massridedelivery.com/merchant/terms';
+
+  /// Web account-deletion page (in-app + email instructions). Satisfies the
+  /// App Store / Play "provide a way to delete your account" requirement even
+  /// while the in-app `DELETE /auth/account` path is unavailable.
+  static const String deleteAccount =
+      'https://massridedelivery.com/delete-account';
 }
 
 /// Opens a legal page in the external browser. Falls back to a snackbar if the
