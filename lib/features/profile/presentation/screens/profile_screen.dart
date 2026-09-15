@@ -15,6 +15,7 @@ import 'package:merchant_app/features/restaurant/presentation/screens/kyc_docume
 import 'package:merchant_app/features/restaurant/presentation/screens/store_details_screen.dart';
 import 'package:merchant_app/core/assets/app_icons.dart';
 import 'package:merchant_app/core/widgets/app_icon.dart';
+import 'package:merchant_app/core/config/legal_urls.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -301,6 +302,21 @@ class ProfileScreen extends ConsumerWidget {
                           'ลบบัญชี',
                           style: AppTypography.label3.copyWith(
                             color: AppColors.error,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                      // Web fallback: the hosted page explains deletion by email
+                      // too, so account removal is always reachable even when the
+                      // in-app DELETE endpoint is unavailable — and store
+                      // reviewers can find it without signing in.
+                      TextButton(
+                        onPressed: () =>
+                            openLegalUrl(context, LegalUrls.deleteAccount),
+                        child: Text(
+                          'ขอลบบัญชีผ่านเว็บไซต์',
+                          style: AppTypography.caption5.copyWith(
+                            color: const Color(0xFF64748B),
                             decoration: TextDecoration.underline,
                           ),
                         ),
