@@ -106,6 +106,10 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           # Unique, increasing CFBundleVersion for each TestFlight upload.
           BUILD_NUMBER: ${{ github.run_number }}
+          # Build the production identity with the prod Firebase config (still the
+          # dev backend for now), matching the Android pipeline which builds
+          # env/prod.json. The app id stays com.mass.merchantApp either way.
+          ENV_FILE: env/prod.json
         run: bundle exec fastlane ios beta
 
       - name: Archive IPA
