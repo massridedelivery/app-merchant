@@ -44,6 +44,9 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         manifestPlaceholders["mapsApiKey"] = "AIzaSyAhv0YLF02xnFQRD1jqmqMWLL8JmO7fG80"
+        // Launcher label. Overridden for debug (.dev) below so a dev install is
+        // distinguishable from a production one on the same device.
+        manifestPlaceholders["appName"] = "Mass Merchant"
     }
 
     signingConfigs {
@@ -63,6 +66,7 @@ android {
             // sit alongside a production install on the same device.
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
+            manifestPlaceholders["appName"] = "Mass Merchant Dev"
         }
         release {
             // Use the real release keystore when key.properties is present

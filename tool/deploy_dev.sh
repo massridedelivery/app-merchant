@@ -25,6 +25,7 @@ cd "$ROOT"
 PROD_BUNDLE_ID="com.mass.merchantApp"
 DEV_BUNDLE_ID="${DEV_BUNDLE_ID:-com.mass.merchantApp.dev}"
 PBXPROJ="ios/Runner.xcodeproj/project.pbxproj"
+INFO_PLIST="ios/Runner/Info.plist"
 ENV_FILE="ios/.appstore_connect.env"
 DART_DEFINE="env/dev.json"
 
@@ -40,16 +41,27 @@ DART_DEFINE="env/dev.json"
 echo "==> Bumping build number"
 bash tool/bump_build.sh
 
-# --- always restore the project file ---------------------------------------
+# --- always restore the edited files ---------------------------------------
+# Both the bundle id (pbxproj) and the launcher name (Info.plist) are rewritten
+# for the .dev build and restored afterwards, so neither override lands in a commit.
 BACKUP="$(mktemp)"
+BACKUP_PLIST="$(mktemp)"
 cp "$PBXPROJ" "$BACKUP"
-restore() { cp "$BACKUP" "$PBXPROJ"; rm -f "$BACKUP"; }
+cp "$INFO_PLIST" "$BACKUP_PLIST"
+restore() {
+  cp "$BACKUP" "$PBXPROJ"; cp "$BACKUP_PLIST" "$INFO_PLIST"
+  rm -f "$BACKUP" "$BACKUP_PLIST"
+}
 trap restore EXIT
 
 echo "==> Pointing Release bundle id at ${DEV_BUNDLE_ID}"
 # Exact match on the prod id + trailing ';' so RunnerTests and the already-.dev
 # Debug config are left untouched.
 perl -0pi -e "s/PRODUCT_BUNDLE_IDENTIFIER = \Q${PROD_BUNDLE_ID}\E;/PRODUCT_BUNDLE_IDENTIFIER = ${DEV_BUNDLE_ID};/g" "$PBXPROJ"
+
+echo "==> Setting launcher name to 'Mass Merchant Dev'"
+# Distinguish the .dev install from the production "Mass Merchant" on the device.
+perl -0pi -e "s{(<key>CFBundleDisplayName</key>\s*<string>)Mass Merchant(</string>)}{\${1}Mass Merchant Dev\${2}}g" "$INFO_PLIST"
 
 echo "==> Building release IPA (${DART_DEFINE})"
 flutter build ipa --release \
